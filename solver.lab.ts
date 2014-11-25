@@ -226,13 +226,18 @@ module solver.lab {
 	
 	/**
 	 * Take two object trees (see deepClone for supported subset of types) and compares them recursively. 
+	 * 
+	 * Comparison are strict for scalars, but we don't differentiate a value set to undefined, and one set to null. We
+	 * do differentiate an actually unset property from one set to undefined/null, however.
+	 *
+	 * Object prototype chains are ignored and only an object's direct properties are compared.
 	 *
 	 * @param objectA
 	 *
 	 * @param objectB
 	 *
 	 * @return
-	 * True if they match (strictly), false if they don't.
+	 * True if they match, false if they don't.
 	 */
 	export function deepCompare<T>(objectA: T, objectB: T): T {
 		// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
@@ -242,6 +247,11 @@ module solver.lab {
 				throw new Error('Went deeper than 16 levels. Reference loop?');
 			}
 			
+			// Special logic for null values. We don't differentiate the value "undefined" and "null" (JSON logic).
+			if ((objectA == null || objectB == null) && objectA == objectB) {
+				return true;
+			}
+			
 			// Scalars are compared directly.
 			var typeA = typeof objectA;
 			var typeB = typeof objectB;
@@ -249,8 +259,8 @@ module solver.lab {
 			if (typeA !== typeB) {
 				return false;
 			}
-						
-			if (objectA == null || typeA === 'string' || typeA === 'number' || typeA === 'boolean') {
+			
+			if (typeA === 'string' || typeA === 'number' || typeA === 'boolean') {
 				return objectA === objectB;
 			}
 			
