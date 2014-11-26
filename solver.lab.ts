@@ -10,14 +10,10 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
- 
- "use strict";
- 
-/*
- * VERSION 0.1.0
- */
 
-// TODO: Split the TS source into multiple individual files per function and class.
+"use strict";
+
+// TODO: The rest of the symbols in this file should go into multiple individual files per function and class.
 module solver.lab {	
 	/**
 	 * TODO: This has become big enough, it should be a class.
@@ -160,145 +156,6 @@ module solver.lab {
 	    	.replace(/</g, '&lt;')
 	    	.replace(/"/g, '&quot;')
 	    	.replace(/'/g, '&#39;');
-	}
-	
-	/**
-	 * Creates a deep copy of a tree containing simple types: Object (as a dictionary), Array, number, string, boolean,
-	 * null. For objects, it assumes they're used like dictionaries and ignores prototype properties and clones only own
-	 * properties.
-	 * 
-	 * Use this when you have a C struct-like dictionary or array that you need to pass as a parameter, or return as 
-	 * a result, ensuring the other side can't modify your copy of it "magically from distance".
-	 *
-	 * The subset of supported primitive and object types intentionally matches JSON, so Date instances etc. will lose
-	 * their prototype.
-	 *
-	 * If your structure is big, you should wrap your data in a class and expose an API for accessing it instead.
-	 *
-	 * @param object
-	 * Any object consisting of the basic types outlined above.
-	 *
-	 * @return
-	 * A deep clone of the input object.
-	 *
-	 * @throws Error
-	 * If your structure is too deep (TODO: specify max depth or expose param), to avoid cyclic references.
-	 *
-	 * @throws Error
-	 * If your object contains unsupported types (not one of the listed above).
-	 */
-	export function deepClone<T>(object: T): T {
-		// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
-		// inline that in the loop.
-		function cloneRecursive(object: T, level: number): any {
-			if (level > 16) {
-				throw new Error('Went deeper than 16 levels. Reference loop?');
-			}
-			
-			// Scalars are return directly as they're immutable (no need to copy them).
-			var type = typeof object;
-			
-			if (object == null || type === 'string' || type === 'number' || type === 'boolean') {
-				return object;
-			}
-			
-			if (type === 'object') {		
-				var objectClone: any;
-						
-				if (object instanceof Array) {
-					objectClone = [];
-				} else {
-					objectClone = {};
-				}
-				
-				for (var i in object) if (object.hasOwnProperty(i)) {
-					objectClone[i] = cloneRecursive(object[i], level + 1);
-				}
-				
-				return objectClone;
-			}
-			
-			throw new Error('The object is (or contains properties) of unsupported type "' + type + '".');
-		}
-		
-		return cloneRecursive(object, 0);
-	}
-	
-	/**
-	 * Take two object trees (see deepClone for supported subset of types) and compares them recursively. 
-	 * 
-	 * Comparison are strict for scalars, but we don't differentiate a value set to undefined, and one set to null. We
-	 * do differentiate an actually unset property from one set to undefined/null, however.
-	 *
-	 * Object prototype chains are ignored and only an object's direct properties are compared.
-	 *
-	 * @param objectA
-	 *
-	 * @param objectB
-	 *
-	 * @return
-	 * True if they match, false if they don't.
-	 */
-	export function deepCompare<T>(objectA: T, objectB: T): T {
-		// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
-		// inline that in the loop.
-		function compareRecursive(objectA: T, objectB: T, level: number): any {
-			if (level > 16) {
-				throw new Error('Went deeper than 16 levels. Reference loop?');
-			}
-			
-			// Special logic for null values. We don't differentiate the value "undefined" and "null" (JSON logic).
-			if ((objectA == null || objectB == null) && objectA == objectB) {
-				return true;
-			}
-			
-			// Scalars are compared directly.
-			var typeA = typeof objectA;
-			var typeB = typeof objectB;
-			
-			if (typeA !== typeB) {
-				return false;
-			}
-			
-			if (typeA === 'string' || typeA === 'number' || typeA === 'boolean') {
-				return objectA === objectB;
-			}
-			
-			if (typeA === 'object') {
-				if (objectA instanceof Array && !(objectB instanceof Array)) {
-					return false;
-				}
-				
-				var propCountA = 0;
-				
-				for (var i in objectA) if (objectA.hasOwnProperty(i)) {
-					propCountA++;
-				}
-				
-				var propCountB = 0;
-				
-				for (var i in objectB) if (objectB.hasOwnProperty(i)) {
-					propCountB++;
-					
-					if (!objectA.hasOwnProperty(i)) {
-						return false;
-					}
-					
-					if (!(compareRecursive(objectA[i], objectB[i], level + 1))) {
-						return false;
-					}
-				}
-				
-				if (propCountA !== propCountB) return false;
-				
-				return true;
-			}
-			
-			// TODO: A more detailed error report.
-			throw new Error('One or both of the compared objects are, or contain properties of an unsupported type.');
-		}
-		
-		return compareRecursive(objectA, objectB, 0);
 	}
 	
 	/**

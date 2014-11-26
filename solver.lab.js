@@ -11,10 +11,194 @@
  * specific language governing permissions and limitations under the License.
  */
 "use strict";
+var solver;
+(function (solver) {
+    var lab;
+    (function (lab) {
+        /**
+         * Common utilities for operating with primitives and objects.
+         */
+        var ObjectUtils = (function () {
+            function ObjectUtils() {
+            }
+            /**
+             * Creates a deep copy of a tree containing simple types: Object (as a dictionary), Array, number, string, boolean,
+             * null. For objects, it assumes they're used like dictionaries and ignores prototype properties and clones only own
+             * properties.
+             *
+             * Use this when you have a C struct-like dictionary or array that you need to pass as a parameter, or return as
+             * a result, ensuring the other side can't modify your copy of it "magically from distance".
+             *
+             * The subset of supported primitive and object types intentionally matches JSON, so Date instances etc. will lose
+             * their prototype.
+             *
+             * If your structure is big, you should wrap your data in a class and expose an API for accessing it instead.
+             *
+             * @param object
+             * Any object consisting of the basic types outlined above.
+             *
+             * @return
+             * A deep clone of the input object.
+             *
+             * @throws Error
+             * If your structure is too deep (TODO: specify max depth or expose param), to avoid cyclic references.
+             *
+             * @throws Error
+             * If your object contains unsupported types (not one of the listed above).
+             */
+            ObjectUtils.clone = function (object) {
+                // TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
+                // inline that in the loop.
+                function cloneRecursive(object, level) {
+                    if (level > 16) {
+                        throw new Error('Went deeper than 16 levels. Reference loop?');
+                    }
+                    // Scalars are return directly as they're immutable (no need to copy them).
+                    var type = typeof object;
+                    if (object == null || type === 'string' || type === 'number' || type === 'boolean') {
+                        return object;
+                    }
+                    if (type === 'object') {
+                        var objectClone;
+                        if (object instanceof Array) {
+                            objectClone = [];
+                        }
+                        else {
+                            objectClone = {};
+                        }
+                        for (var i in object)
+                            if (object.hasOwnProperty(i)) {
+                                objectClone[i] = cloneRecursive(object[i], level + 1);
+                            }
+                        return objectClone;
+                    }
+                    throw new Error('The object is (or contains properties) of unsupported type "' + type + '".');
+                }
+                return cloneRecursive(object, 0);
+            };
+            /**
+             * Takes two object trees (see deepClone for supported subset of types) and compares them for matching contents
+             * recursively.
+             *
+             * Comparisons are strict for scalars, but we don't differentiate a value set to undefined, and one set to null.
+             * We do differentiate an actually unset property from one set to undefined/null, however.
+             *
+             * Object's prototype is compared for identity (i.e. same type), and only the object's direct properties are
+             * compared individually.
+             *
+             * @param objectA
+             *
+             * @param objectB
+             *
+             * @param params.hashProperty
+             * Optional, default null.
+             *
+             * Comparing deeply nested objects and arrays can be expensive, so instead of recursing into them, you can
+             * provide a special "hash" to short-circuit the change detection. If an array, or an object (non-scalar) have a
+             * property with the name specified by hashPropertyName, the hashes at the respective locations of objectA and
+             * objectB will be compared in order to determine if any change has occurred.
+             *
+             * Hash values are typically a scalar value, but you can also use a new empty object as a unique token. They'll
+             * be compared by identity (for scalars, they're compared strictly, i.e. in both cases === is used).
+             *
+             * If one of the objects has a hash at a given location, and the other doesn't, this is considered "two
+             * different hashes", hence deepCompare() will return false (objectA and objectB are different).
+             *
+             * IMPORTANT: Be careful in the choice of a hash property, as those will not be considered normal properties of
+             * the object that the function will descend to and compare as usual values. You can use unlikely names like
+             * "__hash__" for example
+             *
+             * TODO: Test with & add official support for JavaScript's Symbol to ensure hash properties with no collisions.
+             *
+             * @return True if they match, false if they don't.
+             */
+            ObjectUtils.equals = function (objectA, objectB, params) {
+                var hashProperty = params.hashProperty == null ? null : params.hashProperty;
+                // TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
+                // inline that in the loop.
+                function compareRecursive(objectA, objectB, level) {
+                    if (level > 16) {
+                        throw new Error('Went deeper than 16 levels. Reference loop?');
+                    }
+                    // Special logic for null values. We don't differentiate the value "undefined" and "null" (JSON logic).
+                    if ((objectA == null || objectB == null) && objectA == objectB) {
+                        return true;
+                    }
+                    // Scalars are compared directly.
+                    var typeA = typeof objectA;
+                    var typeB = typeof objectB;
+                    if (typeA !== typeB) {
+                        return false;
+                    }
+                    if (typeA === 'string' || typeA === 'number' || typeA === 'boolean') {
+                        return objectA === objectB;
+                    }
+                    if (typeA === 'object') {
+                        if (Object.getPrototypeOf(objectA) !== Object.getPrototypeOf(objectB)) {
+                            return false;
+                        }
+                        // Short-circuit comparison via hashes (hashes are always compared via ===, no recursive check).
+                        if (hashProperty != null) {
+                            if (objectA.hasOwnProperty(hashProperty)) {
+                                if (objectB.hasOwnProperty(hashProperty)) {
+                                    return objectA[hashProperty] === objectB[hashProperty];
+                                }
+                                else {
+                                    return false;
+                                }
+                            }
+                            if (objectB.hasOwnProperty(hashProperty)) {
+                                if (objectA.hasOwnProperty(hashProperty)) {
+                                    return objectA[hashProperty] === objectB[hashProperty];
+                                }
+                                else {
+                                    return false;
+                                }
+                            }
+                        }
+                        var propCountA = 0;
+                        for (var i in objectA)
+                            if (objectA.hasOwnProperty(i) && i !== hashProperty) {
+                                propCountA++;
+                            }
+                        var propCountB = 0;
+                        for (var i in objectB)
+                            if (objectB.hasOwnProperty(i) && i !== hashProperty) {
+                                propCountB++;
+                                if (!objectA.hasOwnProperty(i)) {
+                                    return false;
+                                }
+                                if (!compareRecursive(objectA[i], objectB[i], level + 1)) {
+                                    return false;
+                                }
+                            }
+                        if (propCountA !== propCountB)
+                            return false;
+                        return true;
+                    }
+                    throw new Error('One or both of the compared objects are, or contain properties of an unsupported type.');
+                }
+                return compareRecursive(objectA, objectB, 0);
+            };
+            return ObjectUtils;
+        })();
+        lab.ObjectUtils = ObjectUtils;
+    })(lab = solver.lab || (solver.lab = {}));
+})(solver || (solver = {}));
 /*
- * VERSION 0.1.0
+ * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at:
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
  */
-// TODO: Split the TS source into multiple individual files per function and class.
+"use strict";
+// TODO: The rest of the symbols in this file should go into multiple individual files per function and class.
 var solver;
 (function (solver) {
     var lab;
@@ -146,126 +330,6 @@ var solver;
         }
         lab.escape = escape;
         /**
-         * Creates a deep copy of a tree containing simple types: Object (as a dictionary), Array, number, string, boolean,
-         * null. For objects, it assumes they're used like dictionaries and ignores prototype properties and clones only own
-         * properties.
-         *
-         * Use this when you have a C struct-like dictionary or array that you need to pass as a parameter, or return as
-         * a result, ensuring the other side can't modify your copy of it "magically from distance".
-         *
-         * The subset of supported primitive and object types intentionally matches JSON, so Date instances etc. will lose
-         * their prototype.
-         *
-         * If your structure is big, you should wrap your data in a class and expose an API for accessing it instead.
-         *
-         * @param object
-         * Any object consisting of the basic types outlined above.
-         *
-         * @return
-         * A deep clone of the input object.
-         *
-         * @throws Error
-         * If your structure is too deep (TODO: specify max depth or expose param), to avoid cyclic references.
-         *
-         * @throws Error
-         * If your object contains unsupported types (not one of the listed above).
-         */
-        function deepClone(object) {
-            // TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
-            // inline that in the loop.
-            function cloneRecursive(object, level) {
-                if (level > 16) {
-                    throw new Error('Went deeper than 16 levels. Reference loop?');
-                }
-                // Scalars are return directly as they're immutable (no need to copy them).
-                var type = typeof object;
-                if (object == null || type === 'string' || type === 'number' || type === 'boolean') {
-                    return object;
-                }
-                if (type === 'object') {
-                    var objectClone;
-                    if (object instanceof Array) {
-                        objectClone = [];
-                    }
-                    else {
-                        objectClone = {};
-                    }
-                    for (var i in object)
-                        if (object.hasOwnProperty(i)) {
-                            objectClone[i] = cloneRecursive(object[i], level + 1);
-                        }
-                    return objectClone;
-                }
-                throw new Error('The object is (or contains properties) of unsupported type "' + type + '".');
-            }
-            return cloneRecursive(object, 0);
-        }
-        lab.deepClone = deepClone;
-        /**
-         * Take two object trees (see deepClone for supported subset of types) and compares them recursively.
-         *
-         * Comparison are strict for scalars, but we don't differentiate a value set to undefined, and one set to null. We
-         * do differentiate an actually unset property from one set to undefined/null, however.
-         *
-         * Object prototype chains are ignored and only an object's direct properties are compared.
-         *
-         * @param objectA
-         *
-         * @param objectB
-         *
-         * @return
-         * True if they match, false if they don't.
-         */
-        function deepCompare(objectA, objectB) {
-            // TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
-            // inline that in the loop.
-            function compareRecursive(objectA, objectB, level) {
-                if (level > 16) {
-                    throw new Error('Went deeper than 16 levels. Reference loop?');
-                }
-                // Special logic for null values. We don't differentiate the value "undefined" and "null" (JSON logic).
-                if ((objectA == null || objectB == null) && objectA == objectB) {
-                    return true;
-                }
-                // Scalars are compared directly.
-                var typeA = typeof objectA;
-                var typeB = typeof objectB;
-                if (typeA !== typeB) {
-                    return false;
-                }
-                if (typeA === 'string' || typeA === 'number' || typeA === 'boolean') {
-                    return objectA === objectB;
-                }
-                if (typeA === 'object') {
-                    if (objectA instanceof Array && !(objectB instanceof Array)) {
-                        return false;
-                    }
-                    var propCountA = 0;
-                    for (var i in objectA)
-                        if (objectA.hasOwnProperty(i)) {
-                            propCountA++;
-                        }
-                    var propCountB = 0;
-                    for (var i in objectB)
-                        if (objectB.hasOwnProperty(i)) {
-                            propCountB++;
-                            if (!objectA.hasOwnProperty(i)) {
-                                return false;
-                            }
-                            if (!(compareRecursive(objectA[i], objectB[i], level + 1))) {
-                                return false;
-                            }
-                        }
-                    if (propCountA !== propCountB)
-                        return false;
-                    return true;
-                }
-                throw new Error('One or both of the compared objects are, or contain properties of an unsupported type.');
-            }
-            return compareRecursive(objectA, objectB, 0);
-        }
-        lab.deepCompare = deepCompare;
-        /**
          * Works similar to its PHP counterpart, used to quickly read deeply nested values in an object/array tree without
          * painstaking manual checks if the key exists at every level.
          */
@@ -389,3 +453,15 @@ var solver;
         lab.ArrayUtils = ArrayUtils;
     })(lab = solver.lab || (solver.lab = {}));
 })(solver || (solver = {}));
+/*
+ * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at:
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
