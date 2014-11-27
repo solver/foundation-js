@@ -19,31 +19,48 @@ module solver.lab {
 	 */
 	export class ObjectUtils {
 		/**
-		 * Creates a deep copy of a tree containing simple types: Object (as a dictionary), Array, number, string, boolean,
-		 * null. For objects, it assumes they're used like dictionaries and ignores prototype properties and clones only own
-		 * properties.
+		 * Creates a deep copy of a tree containing simple types: Object (as a dictionary), Array, number, string,
+		 * boolean, null. For objects, it assumes they're used like dictionaries and ignores prototype properties and
+		 * clones only own properties.
 		 * 
-		 * Use this when you have a C struct-like dictionary or array that you need to pass as a parameter, or return as 
+		 * Use this when you have a C struct-like dictionary or array that you need to pass as a parameter, or return as
 		 * a result, ensuring the other side can't modify your copy of it "magically from distance".
+		 * 
+		 * The subset of supported primitive and object types intentionally matches JSON, so Date instances etc. will
+		 * lose their prototype.
 		 *
-		 * The subset of supported primitive and object types intentionally matches JSON, so Date instances etc. will lose
-		 * their prototype.
-		 *
+		 * TODO: Support Date & other common types and fix this documentation. 
+		 * 
 		 * If your structure is big, you should wrap your data in a class and expose an API for accessing it instead.
-		 *
+		 * 
+		 * TODO: Copy prototype, thus allowing cloning custom types (verify how this works with DOM & other native
+		 * objects, however).
+		 * 
 		 * @param object
 		 * Any object consisting of the basic types outlined above.
-		 *
+		 * 
+		 * @param params.hashProperty
+		 * Optional, default null.
+		 * 
+		 * If you supply a string name for this property, object cloning will be partial: whenever the hashProperty is
+		 * encountered in an object, only the hash will be copied (directly, and not recursively in case it's not a
+		 * scalar) and the rest will be skipped. Such partial hash-only copies of objects are useful (and entirely
+		 * sufficient) for performing equals() checks between two objects using hashes, since equals() itself stops
+		 * comparing other properties at a given level in the tree when it encounters a hash is available at the same
+		 * level.
+		 * 
 		 * @return
 		 * A deep clone of the input object.
-		 *
+		 * 
 		 * @throws Error
 		 * If your structure is too deep (TODO: specify max depth or expose param), to avoid cyclic references.
-		 *
+		 * 
 		 * @throws Error
 		 * If your object contains unsupported types (not one of the listed above).
 		 */
-		public static clone<T>(object: T): T {
+		public static clone<T>(object: T, params: {hashProperty?: string}): T {
+			var hashProperty = params && params.hashProperty ? params.hashProperty : null;
+			
 			// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
 			// inline that in the loop.
 			function cloneRecursive(object: T, level: number): any {
@@ -51,7 +68,7 @@ module solver.lab {
 					throw new Error('Went deeper than 16 levels. Reference loop?'); // TODO: Improve this error message, add maxDepth param.
 				}
 				
-				// Scalars are return directly as they're immutable (no need to copy them).
+				// Scalars are returned directly as they're immutable (no need to copy them).
 				var type = typeof object;
 				
 				if (object == null || type === 'string' || type === 'number' || type === 'boolean') {
@@ -67,8 +84,12 @@ module solver.lab {
 						objectClone = {};
 					}
 					
-					for (var i in object) if (object.hasOwnProperty(i)) {
-						objectClone[i] = cloneRecursive(object[i], level + 1);
+					if (hashProperty != null && object.hasOwnProperty(hashProperty)) {
+						objectClone[hashProperty] = object[hashProperty];
+					} else {
+						for (var i in object) if (object.hasOwnProperty(i)) {
+							objectClone[i] = cloneRecursive(object[i], level + 1);
+						}
 					}
 					
 					return objectClone;
@@ -98,9 +119,15 @@ module solver.lab {
 		 * Optional, default null.
 		 * 
 		 * Comparing deeply nested objects and arrays can be expensive, so instead of recursing into them, you can
-		 * provide a special "hash" to short-circuit the change detection. If an array, or an object (non-scalar) have a
-		 * property with the name specified by hashPropertyName, the hashes at the respective locations of objectA and
-		 * objectB will be compared in order to determine if any change has occurred.
+		 * provide a special "hash" fingerprint for an object tree (or a subtree inside of it) to short-circuit the
+		 * change detection. If an array, or an object (non-scalar) have a property with the name specified by
+		 * hashPropertyName, the hashes at the respective locations of objectA and objectB will be compared in order to
+		 * determine if any change has occurred.
+		 *
+		 * Also when you compare two objects that make uses of hashes, you don't need both (or either in fact) of them
+		 * to contain a full copy of the data to be compared, just the hashes. See Object.clone() for information how
+		 * to produce a partial clone of an object, stopping at places where a hash is found (and cloning only the
+		 * hash).
 		 * 
 		 * Hash values are typically a scalar value, but you can also use a new empty object as a unique token. They'll
 		 * be compared by identity (for scalars, they're compared strictly, i.e. in both cases === is used).
@@ -108,16 +135,22 @@ module solver.lab {
 		 * If one of the objects has a hash at a given location, and the other doesn't, this is considered "two
 		 * different hashes", hence deepCompare() will return false (objectA and objectB are different).
 		 * 
-		 * IMPORTANT: Be careful in the choice of a hash property, as those will not be considered normal properties of
-		 * the object that the function will descend to and compare as usual values. You can use unlikely names like
-		 * "__hash__" for example 
-		 *
-		 * TODO: Test with & add official support for JavaScript's Symbol to ensure hash properties with no collisions.
+		 * Also, don't forget you can have the hash for an object computed on demand by defining the hash property as a
+		 * getter function.
 		 * 
-		 * @return True if they match, false if they don't.
+		 * IMPORTANT: Be careful in the choice of a hash property, as those will not be considered normal properties of
+		 * the object that the function will descend into and compare as usual values. You can use unlikely names like
+		 * "__ID__" or "$FINGERPRINT", for example.
+		 * 
+		 * TODO: Test with & add official support for JavaScript's Symbol to ensure hash properties with no collisions.
+		 * TODO: Implement compare(objectA, objectB, changeHandler: (path: Array<string>, from, to) => false);
+		 * TODO: What about a handler to compare two values and say if they differ?
+		 * 
+		 * @return
+		 * True if they match, false if they don't.
 		 */
 		public static equals(objectA: any, objectB: any, params: {hashProperty?: string}): boolean {
-			var hashProperty = params.hashProperty == null ? null : params.hashProperty;
+			var hashProperty = params && params.hashProperty ? params.hashProperty : null;
 			
 			// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
 			// inline that in the loop.
@@ -126,12 +159,17 @@ module solver.lab {
 					throw new Error('Went deeper than 16 levels. Reference loop?'); // TODO: Improve this error message, add maxDepth param.
 				}
 				
+				// If a strict check is true, we know for sure things match up (and we don't have to descend into object
+				// properties for objects as we know it's literally the same object).
+				if (objectA === objectB) {
+					return true;
+				}
+				
 				// Special logic for null values. We don't differentiate the value "undefined" and "null" (JSON logic).
 				if ((objectA == null || objectB == null) && objectA == objectB) {
 					return true;
 				}
 				
-				// Scalars are compared directly.
 				var typeA = typeof objectA;
 				var typeB = typeof objectB;
 				
@@ -139,31 +177,26 @@ module solver.lab {
 					return false;
 				}
 				
-				if (typeA === 'string' || typeA === 'number' || typeA === 'boolean') {
-					return objectA === objectB;
-				}
-				
 				if (typeA === 'object') {
 					if (Object.getPrototypeOf(objectA) !== Object.getPrototypeOf(objectB)) {
 						return false;
 					}
 					
-					// Short-circuit comparison via hashes (hashes are always compared via ===, no recursive check).
+					// Try to short-circuit compare via hashes.				
 					if (hashProperty != null) {
-						if (objectA.hasOwnProperty(hashProperty)) {
-							if (objectB.hasOwnProperty(hashProperty)) {
-								return objectA[hashProperty] === objectB[hashProperty];
-							} else {
-								return false;
-							}
+						var hasHashA = objectA.hasOwnProperty(hashProperty);
+						var hasHashB = objectB.hasOwnProperty(hashProperty);
+						
+						// One has a hash, the other doesn't. We consider them different.
+						if (hasHashA !== hasHashB) {
+							return false;
 						}
 						
-						if (objectB.hasOwnProperty(hashProperty)) {
-							if (objectA.hasOwnProperty(hashProperty)) {
-								return objectA[hashProperty] === objectB[hashProperty];
-							} else {
-								return false;
-							}
+						// Both have a hash.
+						if (hasHashA) {
+							// Identity comparison means empty objects can be used as unique fingerprints without the
+							// need to track autoincrementing ids and so on. I.e. foo.__hash__ = {}, upon changing foo.
+							return objectB[hashProperty] === objectA[hashProperty];
 						}
 					}
 					

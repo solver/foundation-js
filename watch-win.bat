@@ -1,1 +1,1 @@
-tsc -t ES5 -w -out solver.lab.js main.ts
+tsc -t ES5 -w -out solver.lab.js build.ts

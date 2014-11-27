@@ -11,10 +11,23 @@
  * specific language governing permissions and limitations under the License.
  */
 
-/*
- * VERSION 0.1.1
- */
+"use strict";
 
-/// <reference path="declarations/jquery.d.ts" />
-/// <reference path="solver.lab/ObjectUtils.ts" />
-/// <reference path="solver.lab.ts" />
+/**
+ * A library assisting common tasks performed by views.
+ */
+module solver.lab.view {
+	/**
+	 * EXPERIMENTAL: This class may go away, or change, but fortunately it's easily replaced.
+	 *
+	 * TODO: Explain why this class exists in here.
+	 */ 
+	export class ModelComparator {
+		private modelClone: ViewModel = null;
+		
+		public hasChanged(model: ViewModel) {
+			var equals = solver.lab.ObjectUtils.equals(this.modelClone, model, {hashProperty: '__ID__'});
+			this.modelClone = solver.lab.ObjectUtils.clone(model, {hashProperty: '__ID__'});
+		}
+	}
+}
