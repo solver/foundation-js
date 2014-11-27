@@ -65,6 +65,5 @@ module solver.lab {
 	 * comparisons (see the previous item on this list), or alternatively your view should use another method of
 	 * avoiding unnecessary updates and not use the clone()/equals() approach.
 	 */
-	export interface ViewModel {
-	}
+	export interface ViewModel {}
 }

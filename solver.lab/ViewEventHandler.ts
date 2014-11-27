@@ -51,6 +51,5 @@ module solver.lab {
 	 * should become. This promotes clarity in your code and reduces the need to change your top view's event handler
 	 * interface as you change the underlying lower-level view components exposing the UI to the user.
 	 */
-	interface ViewEventHandler {
-	}	
+	export interface ViewEventHandler {}	
 }

@@ -25,7 +25,7 @@ module solver.lab {
 	 * 
 	 * See ViewEventHandler for more details.
 	 */
-	interface View {		
+	export interface View {		
 		/**
 		 * The update() method triggers the view to update itself, according to the passed model data.
 		 * 
