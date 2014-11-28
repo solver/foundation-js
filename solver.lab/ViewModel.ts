@@ -20,7 +20,7 @@ module solver.lab {
 	 * actual view implementation details as is practical (to encourage model reuse across similar views).
 	 * 
 	 * In this pattern, view models are composed entirely out of data, and not out of methods, and the data schema is
-	 * highly dependent on the specific ViewModel interface provided to go with a given View class.
+	 * highly dependent on the specific ViewModel interface and/or class provided to go with a given View class.
 	 * 
 	 * Because the data supplied to a view can be specific to it, this interface has no predefined properties, and it
 	 * literally exists to host this comment explaining the pattern you should adhere to.
@@ -33,10 +33,10 @@ module solver.lab {
 	 * of time - you are free to use getter properties that compute said data partially and on-demand as the view
 	 * accesses it (or not).
 	 * 
-	 * - For your ViewModel you should prefer a simple tree of objects, arrays and scalars. Null and undefined are
-	 * allowed, but you shouldn't assign a different semantical meaning to null and undefined, they should be both
-	 * treated as null by convention. Do not put HTML DOM elements and other complex internal objects in your view
-	 * model. These restrictions are in place to both encourage model reuse, and to allow a model's contents to be
+	 * - For your ViewModel you should preferably consist of a simple tree of objects, arrays and scalars. Null and
+	 * undefined are allowed, but you shouldn't assign a different semantical meaning to null and undefined, they should
+	 * be both treated as null by convention. Do not put HTML DOM elements and other complex internal objects in your
+	 * view model. These restrictions are in place to both encourage model reuse, and to allow a model's contents to be
 	 * cloneable by ObjectUtils.clone() and comparable via ObjectUtils.equals(), so refer to the documentation of those
 	 * methods for details of what is supported.
 	 * 
@@ -53,8 +53,20 @@ module solver.lab {
 	 * said methods accept any name for hash properties, for ViewModel you should stick to "__ID__" to simplify code
 	 * comprehension and reduce needed documentation for implementing your view model interfaces. This also means that
 	 * even if the code building your model data doesn't implement the "__ID__" optimization (because you've not
-	 * declared it your interface, or you've declared it as optional), it should not use a property named "__ID__"
+	 * declared it in your interface, or you've declared it as optional), it should not use a property named "__ID__"
 	 * anywhere inside the data tree, as it still has a special meaning.
+	 * 
+	 * - Another use for cloned models is improved view responsiveness and internal state housekeeping. When a view is
+	 * modified after, for ex., user interaction, it may update its parent controller or view by triggering the relevant
+	 * event handler. The parent then should update the model, and in return call update() on the view with the updated
+	 * model. However, to improve view responsiveness, the view may keep a clone of the last given model internally and
+	 * modify it "speculatively" in advance of calling its event handler, guessing what the parent will send during the
+	 * next update() call. The view can then compare the internal model clone and the given model in update() and if the
+	 * guess is correct (i.e. both models have the same data) it can avoid a redundant update. This is even more useful
+	 * for improving responsiveness when the event handler or its resultant update are debounced, throttled (i.e.
+	 * rate-limited) or delayed for technical reasons (for ex. involve an async remote call or off-thread processing for
+	 * some of its logic). It means the view may react immediately and not wait for the delayed reaction by the parent
+	 * controller or view in order to guess what the model should be, then correct (if needed) as soon as possible.
 	 * 
 	 * - Try to keep your model small. Any properties that won't change during the lifetime of a component should be
 	 * passed to the constructor or via other means (configuration files etc.) Because the model has to be passed on
