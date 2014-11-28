@@ -14,20 +14,19 @@
 "use strict";
 
 /**
- * A library assisting common tasks performed by views.
+ * A library assisting in common tasks performed by views.
  */
 module solver.lab.view {
 	/**
-	 * EXPERIMENTAL: This class may go away, or change, but fortunately it's easily replaced.
-	 *
-	 * TODO: Explain why this class exists in here.
+	 * TODO: Document the purpose of every method.
 	 */ 
-	export class ModelComparator {
-		private modelClone: ViewModel = null;
+	export class Utils {
+		public static equalsModel(model1: ViewModel, model2: ViewModel): boolean {
+			return solver.lab.ObjectUtils.equals(model1, model2, {hashProperty: '__ID__'});
+		} 
 		
-		public hasChanged(model: ViewModel) {
-			var equals = solver.lab.ObjectUtils.equals(this.modelClone, model, {hashProperty: '__ID__'});
-			this.modelClone = solver.lab.ObjectUtils.clone(model, {hashProperty: '__ID__'});
+		public static cloneModel<T extends ViewModel>(model: T): T {
+			return solver.lab.ObjectUtils.clone<T>(model, {hashProperty: '__ID__'});
 		}
 	}
 }
