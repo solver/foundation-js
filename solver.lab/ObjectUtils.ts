@@ -166,8 +166,8 @@ module solver.lab {
 				}
 				
 				// Special logic for null values. We don't differentiate the value "undefined" and "null" (JSON logic).
-				if ((objectA == null || objectB == null) && objectA == objectB) {
-					return true;
+				if (objectA == null || objectB == null) {
+					return objectA == objectB;
 				}
 				
 				var typeA = typeof objectA;
@@ -177,6 +177,12 @@ module solver.lab {
 					return false;
 				}
 				
+				// Scalars are compared strictly (we already did that check above, we now just interpret the situation
+				// where the comparison result for scalars was false).
+				if (typeA === 'boolean' || typeA === 'number' || typeA === 'string') {
+					return false;
+				}
+
 				if (typeA === 'object') {
 					if (Object.getPrototypeOf(objectA) !== Object.getPrototypeOf(objectB)) {
 						return false;
