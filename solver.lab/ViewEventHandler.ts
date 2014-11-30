@@ -23,7 +23,7 @@ module solver.lab {
 	 * have any public data (i.e. non-method) properties.
 	 * 
 	 * Because the events triggered by a view are specific to it, this interface has none, and it literally exists to
-	 * host this comment explaining the pattern you should adhere to.
+	 * host this documentation, explaining the pattern you should adhere to.
 	 * 
 	 * When creating an event handler interface for your view class, add "implements ViewEventHandler" to signify your
 	 * compliance with the pattern principles listed here.

@@ -40,7 +40,19 @@ module solver.lab {
 		 *
 		 * It's acceptable also that some views may choose to extend the signature of this method by adding more
 		 * arguments after the model. However, to comply with this interface, you should make these parameters optional.
-		 * 
+		 *
+		 * One viable extension would be to pass a model changeset as a second argument, so the view won't have to 
+		 * compare and clone models to derive the changeset itself. For now we don't have a standard approach to
+		 * recommend for this, aside from: choose the best approach on a view-per-view basis. You can provide context
+		 * specific hints to ease the work of the view for common scenarios.
+		 *
+		 * For example, in a list of records, the second argument could be a parameter like lastRecordChange?: boolean,
+		 * to save the view the work of cloning and comparing the entire list on every update, if 90% of the time the
+		 * change is only the last record (and when the flag is false or not passed, the view can re-render in full).
+		 *
+		 * TODO: Monitor Object.observe & Angular's Watchtower.js polyfill (https://github.com/angular/watchtower.js).
+		 * Might be a good basis for a recommended standard changeset format.
+		 *
 		 * @param model
 		 * Model data that should define the view's state. Some views may not have model-based state supplied by the
 		 * caller, so this parameter is made optional. Furthermore, some views may have a meaningful response to an 
