@@ -25,12 +25,8 @@ module solver.lab.view {
 			return solver.lab.ObjectUtils.equals(model1, model2, {hashProperty: '__ID__'});
 		} 
 		
-		public static cloneModel<T extends ViewModel>(model: T, partialForComparing: boolean = false): T {
-			if (partialForComparing) {
-				var params: any = {hashProperty: '__ID__'};
-			} else {
-				var params = null;
-			}
+		public static cloneModel<T extends ViewModel>(model: T, copyOnlyHashesWhenPresent: boolean = false): T {
+			var params: any = {hashProperty: '__ID__', stopCloneAtHash: copyOnlyHashesWhenPresent};
 			
 			return solver.lab.ObjectUtils.clone<T>(model, params);
 		}
