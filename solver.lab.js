@@ -22,17 +22,42 @@ var solver;
             function ObjectUtils() {
             }
             /**
-             * Creates a deep copy of a tree containing simple types: Object (as a dictionary), Array, number, string,
-             * boolean, null. For objects, it assumes they're used like dictionaries and ignores prototype properties and
-             * clones only own properties.
+             * Creates a deep copy of a tree containing simple types: Object, Array, number, string, boolean, null. For
+             * objects, custom prototypes (user classes) are supported. Custom prototypes are directly referenced in the new
+             * object, and not deep-cloned, only an object's own properties are deep cloned (this is what you would expect
+             * in an OOP language).
              *
-             * Use this when you have a C struct-like dictionary or array that you need to pass as a parameter, or return as
-             * a result, ensuring the other side can't modify your copy of it "magically from distance".
+             * When cloning custom user classes/prototypes, do note the following restrictions:
              *
-             * The subset of supported primitive and object types intentionally matches JSON, so Date instances etc. will
-             * lose their prototype.
+             * - Your class (i.e. prototype) must support a nullary constructor (i.e. no arguments), which is invoked in
+             * order to create the clone (we don't use Object.create() so objects have the chance to initialize themselves).
+             * - After being created from a nullary constructor, this function will set properties on your object, cloned
+             * from all the own properties on the original object. Your object should behave properly in this situation.
              *
-             * TODO: Support Date & other common types and fix this documentation.
+             * Best candidates for such cloneable objects are C-struct like objects that simply act as data containers.
+             * Cloning objects with complex behaviors and primarily exposing an interface made of methods (not data) should
+             * not be a typical scenario, anyway.
+             *
+             * Cloning is useful when passing C-struct like object as a parameter, or returning one as a function result, to
+             * ensure the other side can't modify your copy of it "magically from distance".
+             *
+             * TODO: Support a static foo.prototype.getCloned(ownProperties) interface, as an alternative to nullary
+             * constructor + us directly setting properties. This would give objects even more control in initializing.
+             *
+             * The subset of supported primitive and object types intentionally is a superset of the types you need to clone
+             * an object derived from JSON, so cloning structures derived from JSON is always safe.
+             *
+             * The behavior of cloning objects from the internal types (HTMLElement etc.) is undefined at the moment. Don't
+             * do it, except for these tested and confirmed to work internal classes:
+             *
+             * - null, Object, Array
+             * - Date (specific support is added, so it reflects the same datetime as the original).
+             *
+             * We explicitly DO NOT support (and will never support):
+             *
+             * - Number, Boolean, String (those are distinct from the number, boolean, string primitives which we support).
+             *
+             * TODO: Test & support other common internal types and fix this documentation.
              *
              * If your structure is big, you should wrap your data in a class and expose an API for accessing it instead.
              *
@@ -45,15 +70,25 @@ var solver;
              * @param params.hashProperty
              * Optional, default null.
              *
-             * If you supply a string name for this property, object cloning will be partial: whenever the hashProperty is
-             * encountered in an object, only the hash will be copied (directly, and not recursively in case it's not a
-             * scalar) and the rest will be skipped. Such partial hash-only copies of objects are useful (and entirely
-             * sufficient) for performing equals() checks between two objects using hashes, since equals() itself stops
-             * comparing other properties at a given level in the tree when it encounters a hash is available at the same
-             * level.
+             * Hashes are used for faster comparisons by ObjectUtils.compare(), and you can use empty objects as hashes to
+             * ensure their uniqueness (an object has a unique identity that can be checked via ===). To ensure this works
+             * well, the hash property shouldn't be cloned when you clone an object for later comparison, but referenced (or
+             * the two copies will never match as the hash in the clone will have its own identity).
              *
-             * @return
-             * A deep clone of the input object.
+             * Specify the hashProperty name you use to clone hash properties by reference and not by value.
+             *
+             * @param params.stopCloneAtHash
+             * Optional, default null (interpreted as false).
+             *
+             * If you have specified hashProperty and set stopCloneAtHash to true, object cloning will be partial: whenever
+             * the hashProperty is encountered in an object, only the hash will be copied (directly, and not recursively in
+             * case it's not a scalar) and the rest of that subtree will be skipped. Such partial hash-only copies of
+             * objects are useful (and entirely sufficient) for performing equals() checks between two objects using hashes,
+             * since equals() itself stops comparing other properties at a given level in the tree when it encounters a hash
+             * is available at the same level.
+             *
+             * @return A deep
+             * clone of the input object.
              *
              * @throws Error
              * If your structure is too deep (TODO: specify max depth or expose param), to avoid cyclic references.
@@ -63,31 +98,51 @@ var solver;
              */
             ObjectUtils.clone = function (object, params) {
                 var hashProperty = params && params.hashProperty ? params.hashProperty : null;
+                var stopCloneAtHash = params && params.stopCloneAtHash ? params.stopCloneAtHash : false;
+                if (stopCloneAtHash && hashProperty === null) {
+                    throw new Error('You\'ve enabled stopCloneAtHash, but not set the hashProperty name.');
+                }
                 // TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
                 // inline that in the loop.
                 function cloneRecursive(object, level) {
                     if (level > 16) {
                         throw new Error('Went deeper than 16 levels. Reference loop?');
                     }
-                    // Scalars are returned directly as they're immutable (no need to copy them).
                     var type = typeof object;
+                    // Scalars & null are returned directly as they're immutable (no need to copy them).
                     if (object == null || type === 'string' || type === 'number' || type === 'boolean') {
                         return object;
                     }
                     if (type === 'object') {
                         var objectClone;
+                        // Construct. We have specialized construction and initialization code for some built-in types
+                        // (generic code path doesn't work reliably).
                         if (object instanceof Array) {
                             objectClone = [];
                         }
-                        else {
-                            objectClone = {};
+                        else if (object instanceof Date) {
+                            objectClone = new Date();
+                            objectClone.setTime(object.getTime());
                         }
+                        else {
+                            var p = Object.getPrototypeOf(object);
+                            var c = p.constructor;
+                            // We rely on cloned objects which aren't plain objects, to provide a nullary constructor.
+                            if (c === Object) {
+                                objectClone = {};
+                            }
+                            else {
+                                objectClone = new c();
+                            }
+                        }
+                        // Deep clone own properties (except hash, which is directly referenced /in order to support empty
+                        // object references as unique hash tokens/).
                         if (hashProperty != null && object.hasOwnProperty(hashProperty)) {
                             objectClone[hashProperty] = object[hashProperty];
                         }
                         else {
                             for (var i in object)
-                                if (object.hasOwnProperty(i)) {
+                                if (i !== hashProperty && object.hasOwnProperty(i)) {
                                     objectClone[i] = cloneRecursive(object[i], level + 1);
                                 }
                         }
@@ -159,12 +214,17 @@ var solver;
                         return true;
                     }
                     // Special logic for null values. We don't differentiate the value "undefined" and "null" (JSON logic).
-                    if ((objectA == null || objectB == null) && objectA == objectB) {
-                        return true;
+                    if (objectA == null || objectB == null) {
+                        return objectA == objectB;
                     }
                     var typeA = typeof objectA;
                     var typeB = typeof objectB;
                     if (typeA !== typeB) {
+                        return false;
+                    }
+                    // Scalars are compared strictly (we already did that check above, we now just interpret the situation
+                    // where the comparison result for scalars was false).
+                    if (typeA === 'boolean' || typeA === 'number' || typeA === 'string') {
                         return false;
                     }
                     if (typeA === 'object') {
@@ -188,12 +248,12 @@ var solver;
                         }
                         var propCountA = 0;
                         for (var i in objectA)
-                            if (objectA.hasOwnProperty(i) && i !== hashProperty) {
+                            if (i !== hashProperty && objectA.hasOwnProperty(i)) {
                                 propCountA++;
                             }
                         var propCountB = 0;
                         for (var i in objectB)
-                            if (objectB.hasOwnProperty(i) && i !== hashProperty) {
+                            if (i !== hashProperty && objectB.hasOwnProperty(i)) {
                                 propCountB++;
                                 if (!objectA.hasOwnProperty(i)) {
                                     return false;
@@ -215,86 +275,6 @@ var solver;
         lab.ObjectUtils = ObjectUtils;
     })(lab = solver.lab || (solver.lab = {}));
 })(solver || (solver = {}));
-/*
- * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at:
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
- * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations under the License.
- */
-"use strict";
-/**
- * A library assisting common tasks performed by views.
- */
-var solver;
-(function (solver) {
-    var lab;
-    (function (lab) {
-        var view;
-        (function (view) {
-            /**
-             * EXPERIMENTAL: This class may go away, or change, but fortunately it's easily replaced.
-             *
-             * TODO: Explain why this class exists in here.
-             */
-            var ModelComparator = (function () {
-                function ModelComparator() {
-                    this.modelClone = null;
-                }
-                ModelComparator.prototype.hasChanged = function (model) {
-                    var equals = solver.lab.ObjectUtils.equals(this.modelClone, model, { hashProperty: '__ID__' });
-                    this.modelClone = solver.lab.ObjectUtils.clone(model, { hashProperty: '__ID__' });
-                };
-                return ModelComparator;
-            })();
-            view.ModelComparator = ModelComparator;
-        })(view = lab.view || (lab.view = {}));
-    })(lab = solver.lab || (solver.lab = {}));
-})(solver || (solver = {}));
-/*
- * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at:
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
- * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations under the License.
- */
-"use strict";
-/*
- * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at:
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
- * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations under the License.
- */
-"use strict";
-/*
- * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at:
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
- * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations under the License.
- */
-"use strict";
 /*
  * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
  *
@@ -563,3 +543,84 @@ var solver;
         lab.ArrayUtils = ArrayUtils;
     })(lab = solver.lab || (solver.lab = {}));
 })(solver || (solver = {}));
+/*
+ * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at:
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+"use strict";
+/**
+ * A library assisting in common tasks performed by views.
+ */
+var solver;
+(function (solver) {
+    var lab;
+    (function (lab) {
+        var view;
+        (function (view) {
+            /**
+             * TODO: Document the purpose of every method.
+             */
+            var Utils = (function () {
+                function Utils() {
+                }
+                Utils.equalsModel = function (model1, model2) {
+                    return solver.lab.ObjectUtils.equals(model1, model2, { hashProperty: '__ID__' });
+                };
+                Utils.cloneModel = function (model, copyOnlyHashesWhenPresent) {
+                    if (copyOnlyHashesWhenPresent === void 0) { copyOnlyHashesWhenPresent = false; }
+                    var params = { hashProperty: '__ID__', stopCloneAtHash: copyOnlyHashesWhenPresent };
+                    return solver.lab.ObjectUtils.clone(model, params);
+                };
+                return Utils;
+            })();
+            view.Utils = Utils;
+        })(view = lab.view || (lab.view = {}));
+    })(lab = solver.lab || (solver.lab = {}));
+})(solver || (solver = {}));
+/*
+ * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at:
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+"use strict";
+/*
+ * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at:
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+"use strict";
+/*
+ * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at:
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+"use strict";
