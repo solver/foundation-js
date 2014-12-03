@@ -22,6 +22,10 @@ module solver.lab {
 	 * We have no way to define this in the interface, but the View constructor will typically accept an object
 	 * implementing ViewEventHandler, in case the view wants to notify the instantiating code of any events (user
 	 * actions, internal state changes etc.) that occur with it.
+	 *
+	 * Also, by convention, HTML DOM views should request their root HTMLElement in the constructor, and avoid selecting
+	 * their root directly via CSS selectors or other direct mechanisms that could lead to tighter coupling with the
+	 * particular setup of the page document.
 	 * 
 	 * See ViewEventHandler for more details.
 	 */
@@ -70,6 +74,9 @@ module solver.lab {
 		 *
 		 * This return result is primarily useful when you extend a View class and you want to know if the superclass
 		 * detected a change requiring an update when you call super.update().
+		 *
+		 * It's also useful when performance testing and debugging your application - you can easily get a bird's-eye
+		 * view of which views really update when you call update() on them in your application controller.
 		 *
 		 * If a view class doesn't have logic to detect unnecessary updates and it always updates on an update() call, 
 		 * then it can simply always return true to comply with this interface.
