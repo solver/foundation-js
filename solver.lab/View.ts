@@ -79,7 +79,8 @@ module solver.lab {
 		 * view of which views really update when you call update() on them in your application controller.
 		 *
 		 * If a view class doesn't have logic to detect unnecessary updates and it always updates on an update() call, 
-		 * then it can simply always return true to comply with this interface.
+		 * then it can simply always return true to comply with this interface. It can also always return false, if
+		 * it doesn't update its rendering after it's constructed (i.e. it's a "static view").
 		 */
 		update(model?: ViewModel): boolean;
 	}
