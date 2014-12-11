@@ -123,8 +123,7 @@ module solver.lab {
 					if (object instanceof Array) {
 						objectClone = [];
 					} else if (object instanceof Date) {
-						objectClone = new Date(); 
-						(<Date>objectClone).setTime((<Date><any>object).getTime());
+						objectClone = new Date(+object);
 					} else {
 						var p = Object.getPrototypeOf(object);
 						var c = p.constructor;
