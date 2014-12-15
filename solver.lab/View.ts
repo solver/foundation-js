@@ -48,7 +48,9 @@ module solver.lab {
 		 * One viable extension would be to pass a model changeset as a second argument, so the view won't have to 
 		 * compare and clone models to derive the changeset itself. For now we don't have a standard approach to
 		 * recommend for this, aside from: choose the best approach on a view-per-view basis. You can provide context
-		 * specific hints to ease the work of the view for common scenarios.
+		 * specific hints to ease the work of the view for common scenarios. You can use a set of properties that act
+		 * as "dirty bits" for specific parts of the model, or you can provide an exhaustive delta of modified 
+		 * properties.
 		 *
 		 * For example, in a list of records, the second argument could be a parameter like lastRecordChange?: boolean,
 		 * to save the view the work of cloning and comparing the entire list on every update, if 90% of the time the
