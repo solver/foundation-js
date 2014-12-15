@@ -58,6 +58,11 @@ module solver.lab {
 		 *
 		 * TODO: Monitor Object.observe & Angular's Watchtower.js polyfill (https://github.com/angular/watchtower.js).
 		 * Might be a good basis for a recommended standard changeset format.
+		 * 
+		 * TODO: Explore mori (ClojureScript) and Facebook's Immutable.JS (used in React.JS) as an alternative to 
+		 * diffing mutable structures; immutables can be cloned and compared efficiently and can be suitable in some
+		 * cases (in basic cases it's more trouble than it's worth as typical JS apps regularly rebuild parts or all of
+		 * their model from server JSON).
 		 *
 		 * @param model
 		 * Model data that should define the view's state. Some views may not have model-based state supplied by the
