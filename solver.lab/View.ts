@@ -63,6 +63,12 @@ module solver.lab {
 		 * diffing mutable structures; immutables can be cloned and compared efficiently and can be suitable in some
 		 * cases (in basic cases it's more trouble than it's worth as typical JS apps regularly rebuild parts or all of
 		 * their model from server JSON).
+		 * 
+		 * TODO: Explore protocols for partial model updates (i.e. where the size of the model or the bandwidth/latency
+		 * between controller/view preclude passing the full model every time, so parts of the model are passed instead,
+		 * deltas, and they're either merged into a full model locally at the view, or the view is aware of having a 
+		 * partial model to work with; compare with CPU memory cache architectures, which have the same constraints, 
+		 * from I/O to RAM, to L3/L2/L1 and registers).
 		 *
 		 * @param model
 		 * Model data that should define the view's state. Some views may not have model-based state supplied by the
