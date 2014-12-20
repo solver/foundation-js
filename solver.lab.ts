@@ -87,8 +87,8 @@ module solver.lab {
 				// Fill in the events.
 				if (data.log) for (var i = 0, l: number = data.log.length; i < l; i++) {
 					var event = data.log[i];
-					
 					var path = event.path;
+					if (path == null) continue;
 	
 					// Every event tries to find its "best home" to be added to, in this order:
 					// 

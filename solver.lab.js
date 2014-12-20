@@ -121,8 +121,7 @@ var solver;
                             objectClone = [];
                         }
                         else if (object instanceof Date) {
-                            objectClone = new Date();
-                            objectClone.setTime(object.getTime());
+                            objectClone = new Date(+object);
                         }
                         else {
                             var p = Object.getPrototypeOf(object);
@@ -353,6 +352,8 @@ var solver;
                         for (var i = 0, l = data.log.length; i < l; i++) {
                             var event = data.log[i];
                             var path = event.path;
+                            if (path == null)
+                                continue;
                             // Every event tries to find its "best home" to be added to, in this order:
                             // 
                             // 1. An event in the exact slot it belongs in: data="path".
