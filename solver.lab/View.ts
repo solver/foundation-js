@@ -48,7 +48,9 @@ module solver.lab {
 		 * One viable extension would be to pass a model changeset as a second argument, so the view won't have to 
 		 * compare and clone models to derive the changeset itself. For now we don't have a standard approach to
 		 * recommend for this, aside from: choose the best approach on a view-per-view basis. You can provide context
-		 * specific hints to ease the work of the view for common scenarios.
+		 * specific hints to ease the work of the view for common scenarios. You can use a set of properties that act
+		 * as "dirty bits" for specific parts of the model, or you can provide an exhaustive delta of modified 
+		 * properties.
 		 *
 		 * For example, in a list of records, the second argument could be a parameter like lastRecordChange?: boolean,
 		 * to save the view the work of cloning and comparing the entire list on every update, if 90% of the time the
@@ -56,6 +58,17 @@ module solver.lab {
 		 *
 		 * TODO: Monitor Object.observe & Angular's Watchtower.js polyfill (https://github.com/angular/watchtower.js).
 		 * Might be a good basis for a recommended standard changeset format.
+		 * 
+		 * TODO: Explore mori (ClojureScript) and Facebook's Immutable.JS (used in React.JS) as an alternative to 
+		 * diffing mutable structures; immutables can be cloned and compared efficiently and can be suitable in some
+		 * cases (in basic cases it's more trouble than it's worth as typical JS apps regularly rebuild parts or all of
+		 * their model from server JSON).
+		 * 
+		 * TODO: Explore protocols for partial model updates (i.e. where the size of the model or the bandwidth/latency
+		 * between controller/view preclude passing the full model every time, so parts of the model are passed instead,
+		 * deltas, and they're either merged into a full model locally at the view, or the view is aware of having a 
+		 * partial model to work with; compare with CPU memory cache architectures, which have the same constraints, 
+		 * from I/O to RAM, to L3/L2/L1 and registers).
 		 *
 		 * @param model
 		 * Model data that should define the view's state. Some views may not have model-based state supplied by the
