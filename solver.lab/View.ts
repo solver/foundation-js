@@ -76,7 +76,7 @@ module solver.lab {
 	 * - By keeping a (modified or straight) copy of the last given view as its internal state, a viewer can
 	 * significantly improve its responsiveness as perceived by the user. In a most basic implementation, when a viewer
 	 * is directly modified (say by a user interacting with it) it should inform its creator by triggering an event
-	 * handler on the platform object, and then wait for the next update() call in order to update itself in (indirect)
+	 * handler on the context object, and then wait for the next update() call in order to update itself in (indirect)
 	 * response to the user interaction. However, instead of waiting for this update call, a viewer may "speculatively"
 	 * guess how the resulting view change could affect its internal state and modify its internal state itself
 	 * immediately (again, the internal state may either be a direct clone of the view, or derived from it). Then, once

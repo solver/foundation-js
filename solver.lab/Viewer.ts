@@ -54,19 +54,19 @@ module solver.lab {
 	 * into a modeler to manage.
 	 * 
 	 * We have no way to define this in the interface, but the Viewer constructor will typically accept an object
-	 * implementing this viewer's "platform". This is a mediating object, whose interface is typically defined by the
+	 * implementing this viewer's "context". This is a mediating object, whose interface is typically defined by the
 	 * viewer, and implemented by the modeler, which can contain any methods for indirectly communicating with the
 	 * modeler, for example when a viewer wants to notify the modeler of a viewer event (user actions, internal state
-	 * changes), it does this by invoking a method on the platform object. The "platform" is like an API scoped to that
+	 * changes), it does this by invoking a method on the context object. The "context" is like an API scoped to that
 	 * viewer. By not interacting with the modeler directly, this frees the modeler to define its own methods freely and
 	 * manage many views without risking method name collisions and other concerns like this.
 	 * 
-	 * The platform pattern is very similar to the delegate objects as used in OS X Cocoa, with the difference that
+	 * The context pattern is very similar to the delegate objects as used in OS X Cocoa, with the difference that
 	 * they're seen more as proxy of the modeler that's given to the viewer, and not as purely informing the viewer how
 	 * to handle and implement its own functionality (the way a delegate does).
 	 * 
 	 * Likewise a modeler should avoid invoking method directly on the view, other than the constructor and update(). If
-	 * the modeler wants to call the viewer, it should provide a method setCallbacks() on the platform, which allows the
+	 * the modeler wants to call the viewer, it should provide a method setCallbacks() on the context, which allows the
 	 * viewer to provice an object with all needed callbacks the modeler expects to call in communicating with the
 	 * viewer.
 	 * 
@@ -74,7 +74,7 @@ module solver.lab {
 	 * constructor, and avoid selecting their root directly via CSS selectors or other direct mechanisms that could lead
 	 * to tighter coupling with the particular setup of the page document.
 	 * 
-	 * See ViewerPlatform for more details.
+	 * See ViewerContext for more details.
 	 */
 	export interface Viewer {		
 		/**

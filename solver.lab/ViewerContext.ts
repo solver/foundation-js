@@ -21,25 +21,25 @@ module solver.lab {
 	 * When you create a viewer, the constructor will typically accept an object with event handlers (we don't use the
 	 * event observer pattern) to handle any changes (including user actions) that occur in the viewer, as well as any
 	 * other API calls that the modeler could to implement for the viewer to use. If the modeler needs to perform
-	 * callbacks, the platform object should provide a setCallbacks() method that a viewer can invoke with the callbacks
+	 * callbacks, the context object should provide a setCallbacks() method that a viewer can invoke with the callbacks
 	 * in its constructor (or whenever).
 	 * 
-	 * Platforms are simple objects that implement one or more methods based on the specific ViewerPlatform interface
-	 * provided to go with a given Viewer class. A platform interface typically doesn't have or need to have any public
+	 * Contexts are simple objects that implement one or more methods based on the specific ViewerContext interface
+	 * provided to go with a given Viewer class. A context interface typically doesn't have or need to have any public
 	 * data (i.e. non-method) properties.
 	 * 
 	 * Because the events triggered by a viewer are specific to it, this interface has none, and it literally exists to
 	 * host this documentation, explaining the pattern you should adhere to.
 	 * 
-	 * When creating a platform interface for your viewer class, add "implements ViewerPlatform" to signify your
+	 * When creating a context interface for your viewer class, add "implements ViewerContext" to signify your
 	 * compliance with the pattern principles listed here.
 	 * 
-	 * - You should try to have as many as possible (if not all) of your platform methods declared optional, so the
+	 * - You should try to have as many as possible (if not all) of your context methods declared optional, so the
 	 * caller can implement only what they need from your interface, versus be burdened with defining a lot of empty
 	 * methods for events (for ex.) they don't need to handle. Any time the viewer could have a default behavior and not
-	 * use a platform method, allow that method to be optional. Otherwise, of course, make it mandatory.
+	 * use a context method, allow that method to be optional. Otherwise, of course, make it mandatory.
 	 * 
-	 * - When implementing event handlers in a platform, do note that an event handler method already has a name (the
+	 * - When implementing event handlers in a context, do note that an event handler method already has a name (the
 	 * method name), so you don't need to pass a string for the event name, as is with native browser DOM events, for
 	 * example.
 	 * 
@@ -59,5 +59,5 @@ module solver.lab {
 	 * should become. This promotes clarity in your code and reduces the need to change your top viewer's event handler
 	 * interface as you change the underlying lower-level viewer components exposing the UI to the user.
 	 */
-	export interface ViewPlatform {}	
+	export interface ViewerContext {}	
 }
