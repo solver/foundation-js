@@ -64,28 +64,30 @@ module solver.lab {
 		 * @param object
 		 * Any object consisting of the basic types outlined above.
 		 * 
-		 * @param params.hashProperty
-		 * Optional, default null.
+		 * @param params.metaProperty
+		 * Optional, default "__meta__" (pass null to disable meta property support).
+		 * 
+		 * The meta property holds an object with meta properties for the data at that object. Currently the only
+		 * supported property is "id", which is referred forward as "hash" 
+		 * 
+		 * FIXME: The comments from this point on...
 		 * 
 		 * Hashes are used for faster comparisons by ObjectUtils.compare(), and you can use empty objects as hashes to
 		 * ensure their uniqueness (an object has a unique identity that can be checked via ===). To ensure this works
 		 * well, the hash property shouldn't be cloned when you clone an object for later comparison, but referenced (or
 		 * the two copies will never match as the hash in the clone will have its own identity).
 		 * 
-		 * Specify the hashProperty name you use to clone hash properties by reference and not by value.
+		 * @param params.stopAtId
+		 * Optional, default = false.
 		 * 
-		 * @param params.stopCloneAtHash
-		 * Optional, default null (interpreted as false).
+		 * If you have specified an id for an object in its meta property and set stopAtId to true, object cloning
+		 * will be partial: whenever an id is encountered in an object, only the id will be transferred in the clone.
+		 * Such partial id-only "clones" of the object are sufficient for performing equals() checks between two objects
+		 * using ids, since equals() itself stops comparing other properties at a given level in the tree when it
+		 * encounters an id is available.
 		 * 
-		 * If you have specified hashProperty and set stopCloneAtHash to true, object cloning will be partial: whenever
-		 * the hashProperty is encountered in an object, only the hash will be copied (directly, and not recursively in
-		 * case it's not a scalar) and the rest of that subtree will be skipped. Such partial hash-only copies of
-		 * objects are useful (and entirely sufficient) for performing equals() checks between two objects using hashes,
-		 * since equals() itself stops comparing other properties at a given level in the tree when it encounters a hash
-		 * is available at the same level.
-		 * 
-		 * @return A deep
-		 * clone of the input object.
+		 * @return
+		 * A deep clone of the input object.
 		 * 
 		 * @throws Error
 		 * If your structure is too deep (TODO: specify max depth or expose param), to avoid cyclic references.
@@ -93,12 +95,12 @@ module solver.lab {
 		 * @throws Error
 		 * If your object contains unsupported types (not one of the listed above).
 		 */
-		public static clone<T>(object: T, params: {hashProperty?: string; stopCloneAtHash?: boolean}): T {
-			var hashProperty = params && params.hashProperty ? params.hashProperty : null;
-			var stopCloneAtHash = params && params.stopCloneAtHash ? params.stopCloneAtHash : false;
+		public static clone<T>(object: T, params?: {metaProperty?: string; stopAtId?: boolean}): T {
+			var metaProperty = params && params.hasOwnProperty('metaProperty') ? params.metaProperty : '__meta__';
+			var stopAtId = params && params.hasOwnProperty('stopAtId') ? params.stopAtId : false;
 			
-			if (stopCloneAtHash && hashProperty === null) {
-				throw new Error('You\'ve enabled stopCloneAtHash, but not set the hashProperty name.');
+			if (stopAtId && metaProperty === null) {
+				throw new Error('You\'ve enabled stopAtId, but have disabled meta properties (metaProperty is null).');
 			}
 			
 			// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
@@ -136,12 +138,11 @@ module solver.lab {
 						}
 					}
 					
-					// Deep clone own properties (except hash, which is directly referenced /in order to support empty
-					// object references as unique hash tokens/).
-					if (hashProperty != null && object.hasOwnProperty(hashProperty)) {
-						objectClone[hashProperty] = object[hashProperty];
+					// Deep clone own properties (except meta, which is handled in a special way).
+					if (metaProperty != null && object.hasOwnProperty(metaProperty)) {
+						objectClone[metaProperty] = cloneMeta(object[metaProperty]);
 					} else {
-						for (var i in object) if (i !== hashProperty && object.hasOwnProperty(i)) {
+						for (var i in object) if (i !== metaProperty && object.hasOwnProperty(i)) {
 							objectClone[i] = cloneRecursive(object[i], level + 1);
 						}
 					}
@@ -150,6 +151,18 @@ module solver.lab {
 				}
 				
 				throw new Error('The object is (or contains properties) of unsupported type "' + type + '".');
+			}
+			
+			function cloneMeta(meta: any): any {
+				var metaClone: any = {};
+				
+				// We need to directly reference the id in the clone, not clone it, so we can preserve the identity of
+				// empty objects, used as unique id tokens (every new object has a unique identity, checked with ===).
+				if (meta.hasOwnProperty('id')) {
+					metaClone.id = meta.id;
+				}
+				
+				return metaClone;
 			}
 			
 			return cloneRecursive(object, 0);
@@ -169,13 +182,18 @@ module solver.lab {
 		 * 
 		 * @param objectB
 		 * 
-		 * @param params.hashProperty
-		 * Optional, default null.
+		 * @param params.metaProperty
+		 * Optional, default "__meta__" (pass null to disable meta property support).
+		 * 
+		 * The meta property is an object with meta data about the object that holds it. Right now the only meta 
+		 * property supported is "id", which is referred to as "hash" from this point on. 
+		 * 
+		 * FIXME: Update the rest of the comments (from this line below).
 		 * 
 		 * Comparing deeply nested objects and arrays can be expensive, so instead of recursing into them, you can
 		 * provide a special "hash" fingerprint for an object tree (or a subtree inside of it) to short-circuit the
 		 * change detection. If an array, or an object (non-scalar) have a property with the name specified by
-		 * hashPropertyName, the hashes at the respective locations of objectA and objectB will be compared in order to
+		 * metaPropertyName, the hashes at the respective locations of objectA and objectB will be compared in order to
 		 * determine if any change has occurred.
 		 *
 		 * Also when you compare two objects that make uses of hashes, you don't need both (or either in fact) of them
@@ -203,8 +221,8 @@ module solver.lab {
 		 * @return
 		 * True if they match, false if they don't.
 		 */
-		public static equals(objectA: any, objectB: any, params: {hashProperty?: string}): boolean {
-			var hashProperty = params && params.hashProperty ? params.hashProperty : null;
+		public static equals(objectA: any, objectB: any, params?: {metaProperty?: string}): boolean {
+			var metaProperty = params && params.hasOwnProperty('metaProperty') ? params.metaProperty : '__meta__';
 			
 			// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
 			// inline that in the loop.
@@ -242,33 +260,33 @@ module solver.lab {
 						return false;
 					}
 					
-					// Try to short-circuit compare via hashes.				
-					if (hashProperty != null) {
-						var hasHashA = objectA.hasOwnProperty(hashProperty);
-						var hasHashB = objectB.hasOwnProperty(hashProperty);
+					// Try to short-circuit compare via meta id.				
+					if (metaProperty != null) {
+						var hasIdA = objectA.hasOwnProperty(metaProperty) && objectA[metaProperty].hasOwnProperty('id');
+						var hasIdB = objectB.hasOwnProperty(metaProperty) && objectB[metaProperty].hasOwnProperty('id');
 						
-						// One has a hash, the other doesn't. We consider them different.
-						if (hasHashA !== hasHashB) {
+						// One has an id, the other doesn't. We consider them different.
+						if (hasIdA !== hasIdB) {
 							return false;
 						}
 						
-						// Both have a hash.
-						if (hasHashA) {
+						// Both have an id.
+						if (hasIdA) {
 							// Identity comparison means empty objects can be used as unique fingerprints without the
-							// need to track autoincrementing ids and so on. I.e. foo.__hash__ = {}, upon changing foo.
-							return objectB[hashProperty] === objectA[hashProperty];
+							// need to track autoincrementing ids and so on: foo.__meta__.id = {}, upon changing foo.
+							return objectB[metaProperty].id === objectA[metaProperty].id;
 						}
 					}
 					
 					var propCountA = 0;
 					
-					for (var i in objectA) if (i !== hashProperty && objectA.hasOwnProperty(i)) {
+					for (var i in objectA) if (i !== metaProperty && objectA.hasOwnProperty(i)) {
 						propCountA++;
 					}
 					
 					var propCountB = 0;
 					
-					for (var i in objectB) if (i !== hashProperty && objectB.hasOwnProperty(i)) {
+					for (var i in objectB) if (i !== metaProperty && objectB.hasOwnProperty(i)) {
 						propCountB++;
 						
 						if (!objectA.hasOwnProperty(i)) {
