@@ -46,75 +46,78 @@ module solver.lab {
 		function beforeSubmitInternal() {
 			var eventSlots = $('.-events', form);
 			
-			// Reset event contents.
+			// Reset event contents (mostly to indicate a form is being processed, as displaying the log reset them again).
 			eventSlots.html('').hide();
 			
 			if (params.beforeSubmit) params.beforeSubmit();
 		}
 		
 		function onSuccessInternal(data) {
-			displayLog(data);
-	
 			if (params.onSuccess) params.onSuccess(data);
 		}
 		
 		function onErrorInternal(jqXhr) {	
 			// jQuery doesn't pass the parsed "data" on error, so we'll tease it out of the jqXHR object.
 			// This is the reason we only support a subset of the jQuery responseType strings.
-			var data = dataFromJqXhr(params.responseType, jqXhr);
+			var log = dataFromJqXhr(params.responseType, jqXhr);
 		
-			displayLog(data);
+			displayLog(log);
 	
-			if (params.onError) params.onError(data);
+			if (params.onError) params.onError(log);
 		}
 	
-		function displayLog(data) {
+		function displayLog(log) {
 			function addEventToSlot(slot, event) {
 				slot.show().append('<span class="event -' + event.type + '">' + esc(event.message) + '</span>');
 			}
 	
-			if (typeof data === 'object' && data.log) {
+			if (log instanceof Array) {
 				var eventSlots = $('.-events', form);
 				var esc = solver.lab.escape;
+				
+				// Reset event contents.
+				eventSlots.html('').hide();
 					
 				// Build an index of event fields to fill in.
 				var eventSlotsByPath = {};
 				
 				for (var i = 0, l = eventSlots.length; i < l; i++) {
+					var path: string = eventSlots.eq(i).attr('data');
+					if (path === null) path = '';
 					eventSlotsByPath[eventSlots.eq(i).attr('data')] = eventSlots.eq(i);
 				}
 				
 				// Fill in the events.
-				if (data.log) for (var i = 0, l: number = data.log.length; i < l; i++) {
-					var event = data.log[i];
-					var path = event.path;
-					if (path == null) continue;
+				if (log) for (var i = 0, l: number = log.length; i < l; i++) {
+					var event = log[i];
+					var path: string = event.path;
+					
+					if (path == null) path = '';
 	
 					// Every event tries to find its "best home" to be added to, in this order:
 					// 
 					// 1. An event in the exact slot it belongs in: data="path".
 					// 2. An event slot with the exact path preceded by a ~ (read below to see what these do): data="~path".
 					// 3. We start popping off path segments from right and try ~path until we find a match.
-					// 4. If there's still no match by the time there are more dots in the path left, we give up.
+					// 4. If there's still no match by the time we pop off all path segments (matcing data="~"), we give up.
 					// 
 					// The ~path syntax means "put here errors for this path and its descendant paths". You can choose to
 					// use tilde to take advantage of this automatic routing, or remove the tilde to disable it.
 					if (eventSlotsByPath[path]) {
 						addEventToSlot(eventSlotsByPath[path], event);
 					} else {
-						while (!eventSlotsByPath['~' + path]) {
-							var pathSegs = path.split('.');
-	
-							if (pathSegs.length > 1) {
-								pathSegs.pop();
-							} else {
+						for (;;) {
+							if (eventSlotsByPath['~' + path]) {
+								addEventToSlot(eventSlotsByPath['~' + path], event);
 								break;
 							}
-	
+							
+							if (path === '') break;
+							
+							var pathSegs = path.split('.');
+							pathSegs.pop();
 							path = pathSegs.join('.');
 						}
-	
-						if (eventSlotsByPath['~' + path]) addEventToSlot(eventSlotsByPath['~' + path], event);
 					}
 				}
 			}

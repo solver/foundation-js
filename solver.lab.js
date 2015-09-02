@@ -67,28 +67,30 @@ var solver;
              * @param object
              * Any object consisting of the basic types outlined above.
              *
-             * @param params.hashProperty
-             * Optional, default null.
+             * @param params.metaProperty
+             * Optional, default "__meta__" (pass null to disable meta property support).
+             *
+             * The meta property holds an object with meta properties for the data at that object. Currently the only
+             * supported property is "id", which is referred forward as "hash"
+             *
+             * FIXME: The comments from this point on...
              *
              * Hashes are used for faster comparisons by ObjectUtils.compare(), and you can use empty objects as hashes to
              * ensure their uniqueness (an object has a unique identity that can be checked via ===). To ensure this works
              * well, the hash property shouldn't be cloned when you clone an object for later comparison, but referenced (or
              * the two copies will never match as the hash in the clone will have its own identity).
              *
-             * Specify the hashProperty name you use to clone hash properties by reference and not by value.
+             * @param params.stopAtId
+             * Optional, default = false.
              *
-             * @param params.stopCloneAtHash
-             * Optional, default null (interpreted as false).
+             * If you have specified an id for an object in its meta property and set stopAtId to true, object cloning
+             * will be partial: whenever an id is encountered in an object, only the id will be transferred in the clone.
+             * Such partial id-only "clones" of the object are sufficient for performing equals() checks between two objects
+             * using ids, since equals() itself stops comparing other properties at a given level in the tree when it
+             * encounters an id is available.
              *
-             * If you have specified hashProperty and set stopCloneAtHash to true, object cloning will be partial: whenever
-             * the hashProperty is encountered in an object, only the hash will be copied (directly, and not recursively in
-             * case it's not a scalar) and the rest of that subtree will be skipped. Such partial hash-only copies of
-             * objects are useful (and entirely sufficient) for performing equals() checks between two objects using hashes,
-             * since equals() itself stops comparing other properties at a given level in the tree when it encounters a hash
-             * is available at the same level.
-             *
-             * @return A deep
-             * clone of the input object.
+             * @return
+             * A deep clone of the input object.
              *
              * @throws Error
              * If your structure is too deep (TODO: specify max depth or expose param), to avoid cyclic references.
@@ -97,10 +99,10 @@ var solver;
              * If your object contains unsupported types (not one of the listed above).
              */
             ObjectUtils.clone = function (object, params) {
-                var hashProperty = params && params.hashProperty ? params.hashProperty : null;
-                var stopCloneAtHash = params && params.stopCloneAtHash ? params.stopCloneAtHash : false;
-                if (stopCloneAtHash && hashProperty === null) {
-                    throw new Error('You\'ve enabled stopCloneAtHash, but not set the hashProperty name.');
+                var metaProperty = params && params.hasOwnProperty('metaProperty') ? params.metaProperty : '__meta__';
+                var stopAtId = params && params.hasOwnProperty('stopAtId') ? params.stopAtId : false;
+                if (stopAtId && metaProperty === null) {
+                    throw new Error('You\'ve enabled stopAtId, but have disabled meta properties (metaProperty is null).');
                 }
                 // TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
                 // inline that in the loop.
@@ -134,20 +136,28 @@ var solver;
                                 objectClone = new c();
                             }
                         }
-                        // Deep clone own properties (except hash, which is directly referenced /in order to support empty
-                        // object references as unique hash tokens/).
-                        if (hashProperty != null && object.hasOwnProperty(hashProperty)) {
-                            objectClone[hashProperty] = object[hashProperty];
+                        // Deep clone own properties (except meta, which is handled in a special way).
+                        if (metaProperty != null && object.hasOwnProperty(metaProperty)) {
+                            objectClone[metaProperty] = cloneMeta(object[metaProperty]);
                         }
                         else {
                             for (var i in object)
-                                if (i !== hashProperty && object.hasOwnProperty(i)) {
+                                if (i !== metaProperty && object.hasOwnProperty(i)) {
                                     objectClone[i] = cloneRecursive(object[i], level + 1);
                                 }
                         }
                         return objectClone;
                     }
                     throw new Error('The object is (or contains properties) of unsupported type "' + type + '".');
+                }
+                function cloneMeta(meta) {
+                    var metaClone = {};
+                    // We need to directly reference the id in the clone, not clone it, so we can preserve the identity of
+                    // empty objects, used as unique id tokens (every new object has a unique identity, checked with ===).
+                    if (meta.hasOwnProperty('id')) {
+                        metaClone.id = meta.id;
+                    }
+                    return metaClone;
                 }
                 return cloneRecursive(object, 0);
             };
@@ -165,13 +175,18 @@ var solver;
              *
              * @param objectB
              *
-             * @param params.hashProperty
-             * Optional, default null.
+             * @param params.metaProperty
+             * Optional, default "__meta__" (pass null to disable meta property support).
+             *
+             * The meta property is an object with meta data about the object that holds it. Right now the only meta
+             * property supported is "id", which is referred to as "hash" from this point on.
+             *
+             * FIXME: Update the rest of the comments (from this line below).
              *
              * Comparing deeply nested objects and arrays can be expensive, so instead of recursing into them, you can
              * provide a special "hash" fingerprint for an object tree (or a subtree inside of it) to short-circuit the
              * change detection. If an array, or an object (non-scalar) have a property with the name specified by
-             * hashPropertyName, the hashes at the respective locations of objectA and objectB will be compared in order to
+             * metaPropertyName, the hashes at the respective locations of objectA and objectB will be compared in order to
              * determine if any change has occurred.
              *
              * Also when you compare two objects that make uses of hashes, you don't need both (or either in fact) of them
@@ -200,7 +215,7 @@ var solver;
              * True if they match, false if they don't.
              */
             ObjectUtils.equals = function (objectA, objectB, params) {
-                var hashProperty = params && params.hashProperty ? params.hashProperty : null;
+                var metaProperty = params && params.hasOwnProperty('metaProperty') ? params.metaProperty : '__meta__';
                 // TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
                 // inline that in the loop.
                 function compareRecursive(objectA, objectB, level) {
@@ -230,29 +245,29 @@ var solver;
                         if (Object.getPrototypeOf(objectA) !== Object.getPrototypeOf(objectB)) {
                             return false;
                         }
-                        // Try to short-circuit compare via hashes.				
-                        if (hashProperty != null) {
-                            var hasHashA = objectA.hasOwnProperty(hashProperty);
-                            var hasHashB = objectB.hasOwnProperty(hashProperty);
-                            // One has a hash, the other doesn't. We consider them different.
-                            if (hasHashA !== hasHashB) {
+                        // Try to short-circuit compare via meta id.				
+                        if (metaProperty != null) {
+                            var hasIdA = objectA.hasOwnProperty(metaProperty) && objectA[metaProperty].hasOwnProperty('id');
+                            var hasIdB = objectB.hasOwnProperty(metaProperty) && objectB[metaProperty].hasOwnProperty('id');
+                            // One has an id, the other doesn't. We consider them different.
+                            if (hasIdA !== hasIdB) {
                                 return false;
                             }
-                            // Both have a hash.
-                            if (hasHashA) {
+                            // Both have an id.
+                            if (hasIdA) {
                                 // Identity comparison means empty objects can be used as unique fingerprints without the
-                                // need to track autoincrementing ids and so on. I.e. foo.__hash__ = {}, upon changing foo.
-                                return objectB[hashProperty] === objectA[hashProperty];
+                                // need to track autoincrementing ids and so on: foo.__meta__.id = {}, upon changing foo.
+                                return objectB[metaProperty].id === objectA[metaProperty].id;
                             }
                         }
                         var propCountA = 0;
                         for (var i in objectA)
-                            if (i !== hashProperty && objectA.hasOwnProperty(i)) {
+                            if (i !== metaProperty && objectA.hasOwnProperty(i)) {
                                 propCountA++;
                             }
                         var propCountB = 0;
                         for (var i in objectB)
-                            if (i !== hashProperty && objectB.hasOwnProperty(i)) {
+                            if (i !== metaProperty && objectB.hasOwnProperty(i)) {
                                 propCountB++;
                                 if (!objectA.hasOwnProperty(i)) {
                                     return false;
@@ -317,49 +332,53 @@ var solver;
         function ajaxForm(form, params) {
             function beforeSubmitInternal() {
                 var eventSlots = $('.-events', form);
-                // Reset event contents.
+                // Reset event contents (mostly to indicate a form is being processed, as displaying the log reset them again).
                 eventSlots.html('').hide();
                 if (params.beforeSubmit)
                     params.beforeSubmit();
             }
             function onSuccessInternal(data) {
-                displayLog(data);
                 if (params.onSuccess)
                     params.onSuccess(data);
             }
             function onErrorInternal(jqXhr) {
                 // jQuery doesn't pass the parsed "data" on error, so we'll tease it out of the jqXHR object.
                 // This is the reason we only support a subset of the jQuery responseType strings.
-                var data = dataFromJqXhr(params.responseType, jqXhr);
-                displayLog(data);
+                var log = dataFromJqXhr(params.responseType, jqXhr);
+                displayLog(log);
                 if (params.onError)
-                    params.onError(data);
+                    params.onError(log);
             }
-            function displayLog(data) {
+            function displayLog(log) {
                 function addEventToSlot(slot, event) {
                     slot.show().append('<span class="event -' + event.type + '">' + esc(event.message) + '</span>');
                 }
-                if (typeof data === 'object' && data.log) {
+                if (log instanceof Array) {
                     var eventSlots = $('.-events', form);
                     var esc = solver.lab.escape;
+                    // Reset event contents.
+                    eventSlots.html('').hide();
                     // Build an index of event fields to fill in.
                     var eventSlotsByPath = {};
                     for (var i = 0, l = eventSlots.length; i < l; i++) {
+                        var path = eventSlots.eq(i).attr('data');
+                        if (path === null)
+                            path = '';
                         eventSlotsByPath[eventSlots.eq(i).attr('data')] = eventSlots.eq(i);
                     }
                     // Fill in the events.
-                    if (data.log)
-                        for (var i = 0, l = data.log.length; i < l; i++) {
-                            var event = data.log[i];
+                    if (log)
+                        for (var i = 0, l = log.length; i < l; i++) {
+                            var event = log[i];
                             var path = event.path;
                             if (path == null)
-                                continue;
+                                path = '';
                             // Every event tries to find its "best home" to be added to, in this order:
                             // 
                             // 1. An event in the exact slot it belongs in: data="path".
                             // 2. An event slot with the exact path preceded by a ~ (read below to see what these do): data="~path".
                             // 3. We start popping off path segments from right and try ~path until we find a match.
-                            // 4. If there's still no match by the time there are more dots in the path left, we give up.
+                            // 4. If there's still no match by the time we pop off all path segments (matcing data="~"), we give up.
                             // 
                             // The ~path syntax means "put here errors for this path and its descendant paths". You can choose to
                             // use tilde to take advantage of this automatic routing, or remove the tilde to disable it.
@@ -367,18 +386,17 @@ var solver;
                                 addEventToSlot(eventSlotsByPath[path], event);
                             }
                             else {
-                                while (!eventSlotsByPath['~' + path]) {
-                                    var pathSegs = path.split('.');
-                                    if (pathSegs.length > 1) {
-                                        pathSegs.pop();
-                                    }
-                                    else {
+                                for (;;) {
+                                    if (eventSlotsByPath['~' + path]) {
+                                        addEventToSlot(eventSlotsByPath['~' + path], event);
                                         break;
                                     }
+                                    if (path === '')
+                                        break;
+                                    var pathSegs = path.split('.');
+                                    pathSegs.pop();
                                     path = pathSegs.join('.');
                                 }
-                                if (eventSlotsByPath['~' + path])
-                                    addEventToSlot(eventSlotsByPath['~' + path], event);
                             }
                         }
                 }
@@ -544,3 +562,7 @@ var solver;
         lab.ArrayUtils = ArrayUtils;
     })(lab = solver.lab || (solver.lab = {}));
 })(solver || (solver = {}));
+/// <reference path="solver.lab/ObjectUtils.ts" />
+/// <reference path="solver.lab.ts" /> 
+/// <reference path="declarations/jquery.d.ts" />
+/// <reference path="lib.ts" /> 
