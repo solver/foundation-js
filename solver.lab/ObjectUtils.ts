@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ * Copyright (C) 2011-2015 Solver Ltd. All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at:
@@ -95,7 +95,7 @@ module solver.lab {
 		 * @throws Error
 		 * If your object contains unsupported types (not one of the listed above).
 		 */
-		public static clone<T>(object: T, params?: {metaProperty?: string; stopAtId?: boolean}): T {
+		public static clone<T>(object: T, params?: {metaProperty?: string; stopAtId?: boolean} = null): T {
 			var metaProperty = params && params.hasOwnProperty('metaProperty') ? params.metaProperty : '__meta__';
 			var stopAtId = params && params.hasOwnProperty('stopAtId') ? params.stopAtId : false;
 			
@@ -221,7 +221,7 @@ module solver.lab {
 		 * @return
 		 * True if they match, false if they don't.
 		 */
-		public static equals(objectA: any, objectB: any, params?: {metaProperty?: string}): boolean {
+		public static equals(objectA: any, objectB: any, params?: {metaProperty?: string} = null): boolean {
 			var metaProperty = params && params.hasOwnProperty('metaProperty') ? params.metaProperty : '__meta__';
 			
 			// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,
@@ -310,6 +310,35 @@ module solver.lab {
 			}
 			
 			return compareRecursive(objectA, objectB, 0);
+		}
+
+		/**
+		 * Takes a string name and return the object for it (say a class) resolved against the global object (window), 
+		 * or the specified parent.
+		 *
+		 * Returns null if the name points to no existing object.
+		 *
+		 * @param name
+		 * A dot delimiter string representing an absolute path to an object (from the global object, or the specified
+		 * parent).
+		 * 
+		 * @param parent
+		 * The parent object to resolve the name against. If not specified, it uses the global object (window).
+		 *
+		 * @return {any|null}
+		 * The value for this name, or null if it doesn't exist.
+		 */
+		public static resolveByName(name: string, parent: any = null): any {
+			var segs = name.split('.');
+	
+			var object: any = parent == null ? window : parent;
+	
+			for (var i = 0, maxI = segs.length; i < maxI; i++) {
+				if (typeof object[segs[i]] === 'undefined') return null;			
+				object = object[segs[i]];
+			}
+	
+			return object;
 		}
 	}
 }
