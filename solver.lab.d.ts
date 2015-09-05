@@ -141,6 +141,23 @@ declare module solver.lab {
         static equals(objectA: any, objectB: any, params?: {
             metaProperty?: string;
         }): boolean;
+        /**
+         * Takes a string name and return the object for it (say a class) resolved against the global object (window),
+         * or the specified parent.
+         *
+         * Returns null if the name points to no existing object.
+         *
+         * @param name
+         * A dot delimiter string representing an absolute path to an object (from the global object, or the specified
+         * parent).
+         *
+         * @param parent
+         * The parent object to resolve the name against. If not specified, it uses the global object (window).
+         *
+         * @return {any|null}
+         * The value for this name, or null if it doesn't exist.
+         */
+        static resolveByName(name: string, parent?: any): any;
     }
 }
 declare module solver.lab {

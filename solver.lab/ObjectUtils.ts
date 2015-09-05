@@ -95,7 +95,7 @@ module solver.lab {
 		 * @throws Error
 		 * If your object contains unsupported types (not one of the listed above).
 		 */
-		public static clone<T>(object: T, params?: {metaProperty?: string; stopAtId?: boolean} = null): T {
+		public static clone<T>(object: T, params?: {metaProperty?: string; stopAtId?: boolean}): T {
 			var metaProperty = params && params.hasOwnProperty('metaProperty') ? params.metaProperty : '__meta__';
 			var stopAtId = params && params.hasOwnProperty('stopAtId') ? params.stopAtId : false;
 			
@@ -221,7 +221,7 @@ module solver.lab {
 		 * @return
 		 * True if they match, false if they don't.
 		 */
-		public static equals(objectA: any, objectB: any, params?: {metaProperty?: string} = null): boolean {
+		public static equals(objectA: any, objectB: any, params?: {metaProperty?: string}): boolean {
 			var metaProperty = params && params.hasOwnProperty('metaProperty') ? params.metaProperty : '__meta__';
 			
 			// TODO: Optimization. Instead of requiring a recursive call only to return the same thing passed for scalars,

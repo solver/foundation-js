@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ * Copyright (C) 2011-2015 Solver Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at:
@@ -284,13 +284,40 @@ var solver;
                 }
                 return compareRecursive(objectA, objectB, 0);
             };
+            /**
+             * Takes a string name and return the object for it (say a class) resolved against the global object (window),
+             * or the specified parent.
+             *
+             * Returns null if the name points to no existing object.
+             *
+             * @param name
+             * A dot delimiter string representing an absolute path to an object (from the global object, or the specified
+             * parent).
+             *
+             * @param parent
+             * The parent object to resolve the name against. If not specified, it uses the global object (window).
+             *
+             * @return {any|null}
+             * The value for this name, or null if it doesn't exist.
+             */
+            ObjectUtils.resolveByName = function (name, parent) {
+                if (parent === void 0) { parent = null; }
+                var segs = name.split('.');
+                var object = parent == null ? window : parent;
+                for (var i = 0, maxI = segs.length; i < maxI; i++) {
+                    if (typeof object[segs[i]] === 'undefined')
+                        return null;
+                    object = object[segs[i]];
+                }
+                return object;
+            };
             return ObjectUtils;
         })();
         lab.ObjectUtils = ObjectUtils;
     })(lab = solver.lab || (solver.lab = {}));
 })(solver || (solver = {}));
 /*
- * Copyright (C) 2011-2014 Solver Ltd. All rights reserved.
+ * Copyright (C) 2011-2015 Solver Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at:
