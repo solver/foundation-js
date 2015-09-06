@@ -24,7 +24,7 @@ module solver.toolbox {
 		 * 
 		 * For this common case, this bind() is much faster than the native version.
 		 */
-		public static bind(method: Function, object: Object) {
+		public static bind(method: Function, object: Object): Function {
 			return function () {
 				method.apply(object, arguments);
 			};
