@@ -12,7 +12,7 @@ module solver.lab {
 	 * 
 	 * Requires jQuery 1.5+.
 	 */
-	class StandardFormHandler {
+	export class StandardFormHandler {
 		// We hold here forms being submitted who haven't receive a response yet, to avoid double submits.
 		protected formsInProgress: Array<HTMLElement> = [];
 		
