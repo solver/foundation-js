@@ -1,148 +1,6 @@
 /// <reference path="declarations/jquery.d.ts" />
 declare module solver.toolbox {
     /**
-     * A convenience tool for AJAX calls that captures common features and conventions used in projects.
-     *
-     * Depends on jQuery 1.9+.
-     * Depends on the jQuery Form plugin: http://malsup.com/jquery/form/
-     */
-    class Ajax {
-        protected ctx: Ajax.Context;
-        /**
-         * For producing unique identifiers in DOM.
-         */
-        protected static serial: number;
-        constructor(ctx: Ajax.Context);
-        /**
-         * Sends an HTTP request to the server.
-         */
-        send(request: Ajax.Request): void;
-        /**
-         * TODO: Consider removing this? Or find a way to make it usable with convertForm().
-         *
-         * Like send(), but automatically points the browser if a non-error response arrives.
-         *
-         * The URL is changed only after any user supplied handlers are invoked.
-         */
-        sendThenLoad(request: Ajax.Request, url: any): void;
-        /**
-         * TODO: Consider removing this? Or find a way to make it usable with convertForm().
-         *
-         * Like send(), but automatically reloads the current URL after a non-error response arrives.
-         *
-         * The page is reloaded after any user supplied handlers are invoked.
-         */
-        sendThenReload(request: Ajax.Request): void;
-        /**
-         * Sets up a form to be sent over XHR, with JS callbacks for success and failure.
-         */
-        convertForm(setup: Ajax.FormConfig): void;
-        private addFieldsToForm(form, serial, fields);
-        private removeFieldsFromForm(form, serial);
-        private validateResponseType(responseType);
-        /**
-         * Same as dataFromXhr() but formats the response as a log error, if not already formatted as a log.
-         */
-        private logFromXhr(responseType, jqXhr);
-        /**
-         * jQuery doesn't return parsed content on error responses, so we need to fish it out of the object.
-         *
-         * This is why responseType in requests is limited to xml, json, text, as we only have logic for those three
-         * types.
-         */
-        private dataFromXhr(responseType, jqXhr);
-    }
-    module Ajax {
-        interface RequestHandlers {
-            /**
-             * Function to execute immediately before a request is sent. With form submissions, this handler is invoked
-             * before the form is serialized, so you have an opportunity to modify the fields, and this will be
-             * reflected in the final request.
-             *
-             * @return boolean|null
-             * Return true to continue sending the request (this is default if you return null or nothing).
-             *
-             * Return false to abort the request before it's sent.
-             */
-            willSend?: (details?: RequestDetails) => boolean;
-        }
-        interface ResponseHandlers {
-            /**
-             * Function to execute on response success, before any call-specific handlers are invoked.
-             */
-            didSucceed?: (output: any, status?: number, details?: RequestDetails) => void;
-            /**
-             * Function to execute on response failure, before any call-specific handlers are invoked.
-             */
-            didFail?: (log: any, status?: number, details?: RequestDetails) => void;
-        }
-        interface ResponseType {
-            /**
-             * Preferred response type, one of "text", "json", "xml". Omit or pass null for auto-detection.
-             */
-            responseType?: any;
-        }
-        interface Request extends ResponseHandlers, ResponseType {
-            /**
-             * URL to call on the server.
-             */
-            url: string;
-            /**
-             * HTTP call method. If not specified, defaults to POST.
-             */
-            method?: string;
-            /**
-             * Object of input fields to send to the server.
-             */
-            input?: any;
-        }
-        interface FormConfig extends RequestHandlers, ResponseHandlers, ResponseType {
-            /**
-             * Form HTML element which will be converted to submit via AJAX.
-             *
-             * The URL and method of the request will be taken from the form.
-             */
-            form: HTMLElement;
-        }
-        /**
-         * Configures the ajax object instance.
-         *
-         * Any event handlers specified here (optional) will be invoked before the user-supplied handlers for a specific
-         * call (if any).
-         */
-        interface Context extends RequestHandlers, ResponseHandlers {
-            /**
-             * A set of fields, as an object, that will be inserted into every AJAX call sent to the server.
-             *
-             * Useful for specifying a CSRF token, API auth token etc.
-             */
-            injectedFields?: any;
-        }
-        /**
-         * Supplied with some events for additional information.
-         */
-        interface RequestDetails {
-            /**
-             * One of: "form", "direct".
-             */
-            source: string;
-            /**
-             * Defined only for source = "form", else not defined.
-             */
-            form?: HTMLElement;
-            /**
-             * Defined only for source = "direct", else not defined.
-             */
-            direct?: {
-                url: string;
-                method: string;
-                input: any;
-            };
-        }
-    }
-}
-declare module solver.toolbox {
-    /**
      * Works similar to its PHP counterpart, used to quickly read deeply nested values in an object/array tree without
      * painstaking manual checks if the key exists at every level.
      */
@@ -413,5 +271,168 @@ declare module solver.toolbox {
          * "foo.bar.baz"
          */
         static bracketToDot(path: string): string;
+    }
+}
+declare module solver.toolbox {
+    /**
+     * A convenience tool for AJAX calls that captures common features and conventions used in projects.
+     *
+     * Depends on jQuery 1.9+.
+     * Depends on the jQuery Form plugin: http://malsup.com/jquery/form/
+     */
+    class Ajax {
+        protected ctx: Ajax.Context;
+        /**
+         * For producing unique identifiers in DOM.
+         */
+        protected static serial: number;
+        constructor(ctx: Ajax.Context);
+        /**
+         * Sends an HTTP request to the server.
+         */
+        send(request: Ajax.Request): void;
+        /**
+         * TODO: Consider removing this? Or find a way to make it usable with convertForm().
+         *
+         * Like send(), but automatically points the browser if a non-error response arrives.
+         *
+         * The URL is changed only after any user supplied handlers are invoked.
+         */
+        sendThenLoad(request: Ajax.Request, url: any): void;
+        /**
+         * TODO: Consider removing this? Or find a way to make it usable with convertForm().
+         *
+         * Like send(), but automatically reloads the current URL after a non-error response arrives.
+         *
+         * The page is reloaded after any user supplied handlers are invoked.
+         */
+        sendThenReload(request: Ajax.Request): void;
+        /**
+         * Sets up a form to be sent over XHR, with JS callbacks for success and failure.
+         */
+        convertForm(setup: Ajax.FormConfig): void;
+        private addFieldsToForm(form, serial, fields);
+        private removeFieldsFromForm(form, serial);
+        private validateResponseType(responseType);
+        /**
+         * Same as dataFromXhr() but formats the response as a log error, if not already formatted as a log.
+         */
+        private logFromXhr(responseType, jqXhr);
+        /**
+         * jQuery doesn't return parsed content on error responses, so we need to fish it out of the object.
+         *
+         * This is why responseType in requests is limited to xml, json, text, as we only have logic for those three
+         * types.
+         */
+        private dataFromXhr(responseType, jqXhr);
+    }
+    module Ajax {
+        interface RequestHandlers {
+            /**
+             * Function to execute immediately before a request is sent. With form submissions, this handler is invoked
+             * before the form is serialized, so you have an opportunity to modify the fields, and this will be
+             * reflected in the final request.
+             *
+             * @return boolean|null
+             * Return true to continue sending the request (this is default if you return null or nothing).
+             *
+             * Return false to abort the request before it's sent.
+             */
+            willSend?: (details?: RequestDetails) => boolean;
+        }
+        interface ResponseHandlers {
+            /**
+             * Function to execute on response success, before any call-specific handlers are invoked.
+             */
+            didSucceed?: (output: any, status?: number, details?: RequestDetails) => void;
+            /**
+             * Function to execute on response failure, before any call-specific handlers are invoked.
+             */
+            didFail?: (log: any, status?: number, details?: RequestDetails) => void;
+        }
+        interface ResponseType {
+            /**
+             * Preferred response type, one of "text", "json", "xml". Omit or pass null for auto-detection.
+             */
+            responseType?: any;
+        }
+        interface Request extends ResponseHandlers, ResponseType {
+            /**
+             * URL to call on the server.
+             */
+            url: string;
+            /**
+             * HTTP call method. If not specified, defaults to POST.
+             */
+            method?: string;
+            /**
+             * Object of input fields to send to the server.
+             */
+            input?: any;
+        }
+        interface FormConfig extends RequestHandlers, ResponseHandlers, ResponseType {
+            /**
+             * Form HTML element which will be converted to submit via AJAX.
+             *
+             * The URL and method of the request will be taken from the form.
+             */
+            form: HTMLElement;
+        }
+        /**
+         * Configures the ajax object instance.
+         *
+         * Any event handlers specified here (optional) will be invoked before the user-supplied handlers for a specific
+         * call (if any).
+         */
+        interface Context extends RequestHandlers, ResponseHandlers {
+            /**
+             * A set of fields, as an object, that will be inserted into every AJAX call sent to the server.
+             *
+             * Useful for specifying a CSRF token, API auth token etc.
+             */
+            injectedFields?: any;
+        }
+        /**
+         * Supplied with some events for additional information.
+         */
+        interface RequestDetails {
+            /**
+             * One of: "form", "direct".
+             */
+            source: string;
+            /**
+             * Defined only for source = "form", else not defined.
+             */
+            form?: HTMLElement;
+            /**
+             * Defined only for source = "direct", else not defined.
+             */
+            direct?: {
+                url: string;
+                method: string;
+                input: any;
+            };
+        }
+    }
+}
+declare module solver.lab {
+    import Ajax = solver.toolbox.Ajax;
+    /**
+     * Use these methods (bound to "this") to Ajax.Context as global handlers to get standard error display & repeat
+     * submit protection for forms.
+     *
+     * TODO: Move in-code comments to here and explain in a way a human can understand, how this works.
+     *
+     * Requires jQuery 1.5+.
+     */
+    class StandardFormHandler {
+        protected formsInProgress: Array<HTMLElement>;
+        willSend(details: Ajax.RequestDetails): void;
+        didSucceed(output: any, status: number, details: Ajax.RequestDetails): void;
+        didFail(log: any, status: number, details: Ajax.RequestDetails): void;
+        protected hasFormIn(formList: Array<HTMLElement>, form: HTMLElement): boolean;
+        protected addFormIn(formList: Array<HTMLElement>, form: HTMLElement): void;
+        protected removeFormIn(formList: Array<HTMLElement>, form: HTMLElement): void;
+        protected displayLog(form: HTMLElement, log: Array<any>): void;
     }
 }

@@ -1,3 +1,5 @@
+/// <reference path="../lib.ts" />
+
 /**
  * DOM-related utilities.
  */
@@ -7,7 +9,7 @@ module solver.toolbox.DomUtils {
 	/**
 	 * Encodes plain text for safe inclusion in HTML code.
 	 */
-	export function encodeText(str: string) {
+	export function encodeText(str: string): string {
 		// TODO: Optimize.
 		return str
 			.replace(/&/g, '&amp;')
@@ -26,7 +28,7 @@ module solver.toolbox.DomUtils {
 	 *
 	 * Depends on jQuery & the "debounce/throttle" jQuery plugin.
 	 */
-	export function onMaybeChanged(elementSet: JQuery, debounceMs: number, handler: (eventObject: JQueryEventObject) => void) {
+	export function onMaybeChanged(elementSet: JQuery, debounceMs: number, handler: (eventObject: JQueryEventObject) => void): void {
 		var anyImmediateChange = 'cut copy paste mousedown mouseup click keydown keyup keypress change propertychange textInput textinput input focus blur';
 		
 		if (debounceMs > 0) {

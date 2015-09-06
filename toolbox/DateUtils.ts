@@ -1,3 +1,5 @@
+/// <reference path="../lib.ts" />
+
 /**
  * Utilities for working with date & time data.
  */

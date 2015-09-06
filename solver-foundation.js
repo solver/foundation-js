@@ -1,223 +1,3 @@
-var solver;
-(function (solver) {
-    var toolbox;
-    (function (toolbox) {
-        "use strict";
-        var encodeText = solver.toolbox.DomUtils.encodeText;
-        /**
-         * A convenience tool for AJAX calls that captures common features and conventions used in projects.
-         *
-         * Depends on jQuery 1.9+.
-         * Depends on the jQuery Form plugin: http://malsup.com/jquery/form/
-         */
-        var Ajax = (function () {
-            function Ajax(ctx) {
-                this.ctx = ctx;
-            }
-            /**
-             * Sends an HTTP request to the server.
-             */
-            Ajax.prototype.send = function (request) {
-                var _this = this;
-                var ctx = this.ctx;
-                if (request.method == null)
-                    request.method = 'POST';
-                if (request.input == null)
-                    request.input = {};
-                if (request.responseType)
-                    this.validateResponseType(request.responseType);
-                if (ctx.injectedFields !== null) {
-                    var fields = ctx.injectedFields;
-                    for (var i in fields)
-                        if (fields.hasOwnProperty(i)) {
-                            request.input[i] = fields[i];
-                        }
-                }
-                var details = {
-                    source: "direct",
-                    direct: {
-                        url: request.url,
-                        method: request.method,
-                        input: request.input,
-                    }
-                };
-                if (ctx.willSend) {
-                    if (ctx.willSend(details) === false)
-                        return;
-                }
-                $.ajax(request.url, {
-                    method: request.method,
-                    data: request.input,
-                    dataType: request.responseType != null ? request.responseType : null,
-                    success: function (response) {
-                        // FIXME: Is the status code here always 200, really?
-                        if (ctx.didSucceed)
-                            ctx.didSucceed(response, 200, details);
-                        if (request.didSucceed)
-                            request.didSucceed(response, 200, details);
-                    },
-                    error: function (jqXhr) {
-                        var response = _this.logFromXhr(null, jqXhr);
-                        if (ctx.didFail)
-                            ctx.didFail(response, jqXhr.status, details);
-                        if (request.didFail)
-                            request.didFail(response, jqXhr.status, details);
-                    }
-                });
-            };
-            /**
-             * TODO: Consider removing this? Or find a way to make it usable with convertForm().
-             *
-             * Like send(), but automatically points the browser if a non-error response arrives.
-             *
-             * The URL is changed only after any user supplied handlers are invoked.
-             */
-            Ajax.prototype.sendThenLoad = function (request, url) {
-                var oldDidSucceed = request.didSucceed;
-                request.didSucceed = function (output) {
-                    if (oldDidSucceed)
-                        oldDidSucceed(output);
-                    location.assign(url);
-                };
-                this.send(request);
-            };
-            /**
-             * TODO: Consider removing this? Or find a way to make it usable with convertForm().
-             *
-             * Like send(), but automatically reloads the current URL after a non-error response arrives.
-             *
-             * The page is reloaded after any user supplied handlers are invoked.
-             */
-            Ajax.prototype.sendThenReload = function (request) {
-                var oldDidSucceed = request.didSucceed;
-                request.didSucceed = function (output) {
-                    if (oldDidSucceed)
-                        oldDidSucceed(output);
-                    location.reload(true);
-                };
-                this.send(request);
-            };
-            /**
-             * Sets up a form to be sent over XHR, with JS callbacks for success and failure.
-             */
-            Ajax.prototype.convertForm = function (setup) {
-                var _this = this;
-                var ctx = this.ctx;
-                var serial = Ajax.serial++;
-                if (setup.responseType != null)
-                    this.validateResponseType(setup.responseType);
-                var details = {
-                    source: "form",
-                    form: setup.form
-                };
-                $(setup.form).ajaxForm({
-                    dataType: setup.responseType != null ? setup.responseType : null,
-                    beforeSerialize: function () {
-                        _this.addFieldsToForm(setup.form, serial, ctx.injectedFields);
-                        if (ctx.willSend) {
-                            if (ctx.willSend(details) === false) {
-                                _this.removeFieldsFromForm(setup.form, serial);
-                                return false;
-                            }
-                        }
-                        if (setup.willSend) {
-                            if (setup.willSend(details) === false) {
-                                _this.removeFieldsFromForm(setup.form, serial);
-                                return false;
-                            }
-                        }
-                    },
-                    success: function (response) {
-                        _this.removeFieldsFromForm(setup.form, serial);
-                        // FIXME: Is the status code here always 200, really?
-                        if (ctx.didSucceed)
-                            ctx.didSucceed(response, 200, details);
-                        if (setup.didSucceed)
-                            setup.didSucceed(response, 200, details);
-                    },
-                    error: function (jqXhr) {
-                        _this.removeFieldsFromForm(setup.form, serial);
-                        var response = _this.logFromXhr(null, jqXhr);
-                        if (ctx.didFail)
-                            ctx.didFail(response, jqXhr.status, details);
-                        if (setup.didFail)
-                            setup.didFail(response, jqXhr.status, details);
-                    }
-                });
-            };
-            Ajax.prototype.addFieldsToForm = function (form, serial, fields) {
-                if (fields == null)
-                    return;
-                for (var i in fields)
-                    if (fields.hasOwnProperty(i)) {
-                        var field = $('<input type="hidden" name="' + encodeText(i) + '">');
-                        field.addClass('-Solver-Toolbox-Ajax-InjectedField' + serial);
-                        field.val(fields[i]);
-                        $(form).append(field);
-                    }
-            };
-            Ajax.prototype.removeFieldsFromForm = function (form, serial) {
-                $('.-Solver-Toolbox-Ajax-InjectedField' + serial, form).remove();
-            };
-            Ajax.prototype.validateResponseType = function (responseType) {
-                if (responseType == null)
-                    return;
-                if (responseType === 'xml')
-                    return;
-                if (responseType === 'json')
-                    return;
-                if (responseType === 'text')
-                    return;
-                throw new Error('Invalid responseType "' + responseType + '".');
-            };
-            /**
-             * Same as dataFromXhr() but formats the response as a log error, if not already formatted as a log.
-             */
-            Ajax.prototype.logFromXhr = function (responseType, jqXhr) {
-                var response = this.dataFromXhr(responseType, jqXhr);
-                // If we haven't received a formatted log from the server, we format the response text as one.
-                var log = response instanceof Array ? response : [{
-                    path: null,
-                    type: 'error',
-                    message: response,
-                    code: jqXhr.status,
-                    details: null
-                }];
-                return log;
-            };
-            /**
-             * jQuery doesn't return parsed content on error responses, so we need to fish it out of the object.
-             *
-             * This is why responseType in requests is limited to xml, json, text, as we only have logic for those three
-             * types.
-             */
-            Ajax.prototype.dataFromXhr = function (responseType, jqXhr) {
-                if (typeof responseType === 'string') {
-                    if (responseType === 'xml' && jqXhr.responseXML)
-                        return jqXhr.responseXML;
-                    if (responseType === 'json' && jqXhr.responseJSON)
-                        return jqXhr.responseJSON;
-                    if (responseType === 'text' && jqXhr.responseText)
-                        return jqXhr.responseText;
-                }
-                // If no (matching) preference, return whatever is there, preferring structured types over plain text.
-                if (jqXhr.responseXML)
-                    return jqXhr.responseXML;
-                if (jqXhr.responseJSON)
-                    return jqXhr.responseJSON;
-                if (jqXhr.responseText)
-                    return jqXhr.responseText;
-                return null;
-            };
-            /**
-             * For producing unique identifiers in DOM.
-             */
-            Ajax.serial = 0;
-            return Ajax;
-        })();
-        toolbox.Ajax = Ajax;
-    })(toolbox = solver.toolbox || (solver.toolbox = {}));
-})(solver || (solver = {}));
 /*
  * Copyright (C) 2011-2015 Solver Ltd. All rights reserved.
  *
@@ -230,6 +10,7 @@ var solver;
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+/// <reference path="../lib.ts" />
 var solver;
 (function (solver) {
     var toolbox;
@@ -279,6 +60,7 @@ var solver;
         toolbox.DataBox = DataBox;
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
+/// <reference path="../lib.ts" />
 /**
  * Utilities for working with date & time data.
  */
@@ -341,6 +123,7 @@ var solver;
         })(DateUtils = toolbox.DateUtils || (toolbox.DateUtils = {}));
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
+/// <reference path="../lib.ts" />
 /**
  * DOM-related utilities.
  */
@@ -393,6 +176,7 @@ var solver;
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+/// <reference path="../lib.ts" />
 var solver;
 (function (solver) {
     var toolbox;
@@ -432,6 +216,7 @@ var solver;
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+/// <reference path="../lib.ts" />
 var solver;
 (function (solver) {
     var toolbox;
@@ -811,11 +596,347 @@ var solver;
         toolbox.ObjectUtils = ObjectUtils;
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
-/// <reference path="toolbox/Ajax.ts" />
+/// <reference path="../lib.ts" />
+var solver;
+(function (solver) {
+    var toolbox;
+    (function (toolbox) {
+        "use strict";
+        var encodeText = solver.toolbox.DomUtils.encodeText;
+        /**
+         * A convenience tool for AJAX calls that captures common features and conventions used in projects.
+         *
+         * Depends on jQuery 1.9+.
+         * Depends on the jQuery Form plugin: http://malsup.com/jquery/form/
+         */
+        var Ajax = (function () {
+            function Ajax(ctx) {
+                this.ctx = ctx;
+            }
+            /**
+             * Sends an HTTP request to the server.
+             */
+            Ajax.prototype.send = function (request) {
+                var _this = this;
+                var ctx = this.ctx;
+                if (request.method == null)
+                    request.method = 'POST';
+                if (request.input == null)
+                    request.input = {};
+                if (request.responseType)
+                    this.validateResponseType(request.responseType);
+                if (ctx.injectedFields !== null) {
+                    var fields = ctx.injectedFields;
+                    for (var i in fields)
+                        if (fields.hasOwnProperty(i)) {
+                            request.input[i] = fields[i];
+                        }
+                }
+                var details = {
+                    source: "direct",
+                    direct: {
+                        url: request.url,
+                        method: request.method,
+                        input: request.input,
+                    }
+                };
+                if (ctx.willSend) {
+                    if (ctx.willSend(details) === false)
+                        return;
+                }
+                $.ajax(request.url, {
+                    method: request.method,
+                    data: request.input,
+                    dataType: request.responseType != null ? request.responseType : null,
+                    success: function (response) {
+                        // FIXME: Is the status code here always 200, really?
+                        if (ctx.didSucceed)
+                            ctx.didSucceed(response, 200, details);
+                        if (request.didSucceed)
+                            request.didSucceed(response, 200, details);
+                    },
+                    error: function (jqXhr) {
+                        var response = _this.logFromXhr(null, jqXhr);
+                        if (ctx.didFail)
+                            ctx.didFail(response, jqXhr.status, details);
+                        if (request.didFail)
+                            request.didFail(response, jqXhr.status, details);
+                    }
+                });
+            };
+            /**
+             * TODO: Consider removing this? Or find a way to make it usable with convertForm().
+             *
+             * Like send(), but automatically points the browser if a non-error response arrives.
+             *
+             * The URL is changed only after any user supplied handlers are invoked.
+             */
+            Ajax.prototype.sendThenLoad = function (request, url) {
+                var oldDidSucceed = request.didSucceed;
+                request.didSucceed = function (output) {
+                    if (oldDidSucceed)
+                        oldDidSucceed(output);
+                    location.assign(url);
+                };
+                this.send(request);
+            };
+            /**
+             * TODO: Consider removing this? Or find a way to make it usable with convertForm().
+             *
+             * Like send(), but automatically reloads the current URL after a non-error response arrives.
+             *
+             * The page is reloaded after any user supplied handlers are invoked.
+             */
+            Ajax.prototype.sendThenReload = function (request) {
+                var oldDidSucceed = request.didSucceed;
+                request.didSucceed = function (output) {
+                    if (oldDidSucceed)
+                        oldDidSucceed(output);
+                    location.reload(true);
+                };
+                this.send(request);
+            };
+            /**
+             * Sets up a form to be sent over XHR, with JS callbacks for success and failure.
+             */
+            Ajax.prototype.convertForm = function (setup) {
+                var _this = this;
+                var ctx = this.ctx;
+                var serial = Ajax.serial++;
+                if (setup.responseType != null)
+                    this.validateResponseType(setup.responseType);
+                var details = {
+                    source: "form",
+                    form: setup.form
+                };
+                $(setup.form).ajaxForm({
+                    dataType: setup.responseType != null ? setup.responseType : null,
+                    beforeSerialize: function () {
+                        _this.addFieldsToForm(setup.form, serial, ctx.injectedFields);
+                        if (ctx.willSend) {
+                            if (ctx.willSend(details) === false) {
+                                _this.removeFieldsFromForm(setup.form, serial);
+                                return false;
+                            }
+                        }
+                        if (setup.willSend) {
+                            if (setup.willSend(details) === false) {
+                                _this.removeFieldsFromForm(setup.form, serial);
+                                return false;
+                            }
+                        }
+                    },
+                    success: function (response) {
+                        _this.removeFieldsFromForm(setup.form, serial);
+                        // FIXME: Is the status code here always 200, really?
+                        if (ctx.didSucceed)
+                            ctx.didSucceed(response, 200, details);
+                        if (setup.didSucceed)
+                            setup.didSucceed(response, 200, details);
+                    },
+                    error: function (jqXhr) {
+                        _this.removeFieldsFromForm(setup.form, serial);
+                        var response = _this.logFromXhr(null, jqXhr);
+                        if (ctx.didFail)
+                            ctx.didFail(response, jqXhr.status, details);
+                        if (setup.didFail)
+                            setup.didFail(response, jqXhr.status, details);
+                    }
+                });
+            };
+            Ajax.prototype.addFieldsToForm = function (form, serial, fields) {
+                if (fields == null)
+                    return;
+                for (var i in fields)
+                    if (fields.hasOwnProperty(i)) {
+                        var field = $('<input type="hidden" name="' + encodeText(i) + '">');
+                        field.addClass('-Solver-Toolbox-Ajax-InjectedField' + serial);
+                        field.val(fields[i]);
+                        $(form).append(field);
+                    }
+            };
+            Ajax.prototype.removeFieldsFromForm = function (form, serial) {
+                $('.-Solver-Toolbox-Ajax-InjectedField' + serial, form).remove();
+            };
+            Ajax.prototype.validateResponseType = function (responseType) {
+                if (responseType == null)
+                    return;
+                if (responseType === 'xml')
+                    return;
+                if (responseType === 'json')
+                    return;
+                if (responseType === 'text')
+                    return;
+                throw new Error('Invalid responseType "' + responseType + '".');
+            };
+            /**
+             * Same as dataFromXhr() but formats the response as a log error, if not already formatted as a log.
+             */
+            Ajax.prototype.logFromXhr = function (responseType, jqXhr) {
+                var response = this.dataFromXhr(responseType, jqXhr);
+                // If we haven't received a formatted log from the server, we format the response text as one.
+                var log = response instanceof Array ? response : [{
+                    path: null,
+                    type: 'error',
+                    message: response,
+                    code: jqXhr.status,
+                    details: null
+                }];
+                return log;
+            };
+            /**
+             * jQuery doesn't return parsed content on error responses, so we need to fish it out of the object.
+             *
+             * This is why responseType in requests is limited to xml, json, text, as we only have logic for those three
+             * types.
+             */
+            Ajax.prototype.dataFromXhr = function (responseType, jqXhr) {
+                if (typeof responseType === 'string') {
+                    if (responseType === 'xml' && jqXhr.responseXML)
+                        return jqXhr.responseXML;
+                    if (responseType === 'json' && jqXhr.responseJSON)
+                        return jqXhr.responseJSON;
+                    if (responseType === 'text' && jqXhr.responseText)
+                        return jqXhr.responseText;
+                }
+                // If no (matching) preference, return whatever is there, preferring structured types over plain text.
+                if (jqXhr.responseXML)
+                    return jqXhr.responseXML;
+                if (jqXhr.responseJSON)
+                    return jqXhr.responseJSON;
+                if (jqXhr.responseText)
+                    return jqXhr.responseText;
+                return null;
+            };
+            /**
+             * For producing unique identifiers in DOM.
+             */
+            Ajax.serial = 0;
+            return Ajax;
+        })();
+        toolbox.Ajax = Ajax;
+    })(toolbox = solver.toolbox || (solver.toolbox = {}));
+})(solver || (solver = {}));
+var solver;
+(function (solver) {
+    var lab;
+    (function (lab) {
+        "use strict";
+        var encodeText = solver.toolbox.DomUtils.encodeText;
+        /**
+         * Use these methods (bound to "this") to Ajax.Context as global handlers to get standard error display & repeat
+         * submit protection for forms.
+         *
+         * TODO: Move in-code comments to here and explain in a way a human can understand, how this works.
+         *
+         * Requires jQuery 1.5+.
+         */
+        var StandardFormHandler = (function () {
+            function StandardFormHandler() {
+                // We hold here forms being submitted who haven't receive a response yet, to avoid double submits.
+                this.formsInProgress = [];
+            }
+            StandardFormHandler.prototype.willSend = function (details) {
+                if (!details.form)
+                    return;
+                if (this.hasFormIn(this.formsInProgress, details.form)) {
+                    // TODO: Replace this with better UI demonstrating the form is processed (and maybe disable controls).
+                    // Making this thing a class and injecting a handler for this occurence is another option.
+                    alert('This form is being submitted right now. Please wait.');
+                }
+                this.addFormIn(this.formsInProgress, details.form);
+                // Reset event contents (mostly to indicate a form is being processed, as displaying the log reset them again).
+                $('.-events', details.form).html('').hide();
+            };
+            StandardFormHandler.prototype.didSucceed = function (output, status, details) {
+                this.removeFormIn(this.formsInProgress, details.form);
+            };
+            StandardFormHandler.prototype.didFail = function (log, status, details) {
+                if (!details.form)
+                    return;
+                this.removeFormIn(this.formsInProgress, details.form);
+                this.displayLog(details.form, log);
+            };
+            StandardFormHandler.prototype.hasFormIn = function (formList, form) {
+                for (var i = formList.length - 1; i >= 0; i--) {
+                    if (formList[i] === form) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            StandardFormHandler.prototype.addFormIn = function (formList, form) {
+                formList.push(form);
+            };
+            StandardFormHandler.prototype.removeFormIn = function (formList, form) {
+                for (var i = formList.length - 1; i >= 0; i--) {
+                    if (formList[i] === form) {
+                        formList.splice(i, 1);
+                    }
+                }
+            };
+            StandardFormHandler.prototype.displayLog = function (form, log) {
+                function addEventToSlot(slot, event) {
+                    slot.show().append('<span class="event -' + event.type + '">' + encodeText(event.message) + '</span>');
+                }
+                if (log instanceof Array) {
+                    var eventSlots = $('.-events', form);
+                    // Reset event contents.
+                    eventSlots.html('').hide();
+                    // Build an index of event fields to fill in.
+                    var eventSlotsByPath = {};
+                    for (var i = 0, l = eventSlots.length; i < l; i++) {
+                        var path = eventSlots.eq(i).attr('data');
+                        if (path === null)
+                            path = '';
+                        eventSlotsByPath[eventSlots.eq(i).attr('data')] = eventSlots.eq(i);
+                    }
+                    // Fill in the events.
+                    if (log)
+                        for (var i = 0, l = log.length; i < l; i++) {
+                            var event = log[i];
+                            var path = event.path;
+                            if (path == null)
+                                path = '';
+                            // Every event tries to find its "best home" to be added to, in this order:
+                            // 
+                            // 1. An event in the exact slot it belongs in: data="path".
+                            // 2. An event slot with the exact path preceded by a ~ (read below to see what these do): data="~path".
+                            // 3. We start popping off path segments from right and try ~path until we find a match.
+                            // 4. If there's still no match by the time we pop off all path segments (matcing data="~"), we give up.
+                            // 
+                            // The ~path syntax means "put here errors for this path and its descendant paths". You can choose to
+                            // use tilde to take advantage of this automatic routing, or remove the tilde to disable it.
+                            if (eventSlotsByPath[path]) {
+                                addEventToSlot(eventSlotsByPath[path], event);
+                            }
+                            else {
+                                for (;;) {
+                                    if (eventSlotsByPath['~' + path]) {
+                                        addEventToSlot(eventSlotsByPath['~' + path], event);
+                                        break;
+                                    }
+                                    if (path === '')
+                                        break;
+                                    var pathSegs = path.split('.');
+                                    pathSegs.pop();
+                                    path = pathSegs.join('.');
+                                }
+                            }
+                        }
+                }
+            };
+            return StandardFormHandler;
+        })();
+        lab.StandardFormHandler = StandardFormHandler;
+    })(lab = solver.lab || (solver.lab = {}));
+})(solver || (solver = {}));
 /// <reference path="toolbox/DataBox.ts" />
 /// <reference path="toolbox/DateUtils.ts" />
 /// <reference path="toolbox/DomUtils.ts" />
 /// <reference path="toolbox/FuncUtils.ts" />
-/// <reference path="toolbox/ObjectUtils.ts" /> 
+/// <reference path="toolbox/ObjectUtils.ts" />
+/// <reference path="toolbox/Ajax.ts" />
+/// <reference path="lab/StandardFormHandler.ts" /> 
 /// <reference path="declarations/jquery.d.ts" />
 /// <reference path="lib.ts" /> 
