@@ -223,7 +223,7 @@ declare module solver.toolbox {
          *
          * For this common case, this bind() is much faster than the native version.
          */
-        static bind(method: Function, object: Object): () => void;
+        static bind(method: Function, object: Object): () => any;
     }
 }
 declare module solver.toolbox {
