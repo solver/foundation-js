@@ -1,5 +1,3 @@
-/// <reference path="../lib.ts" />
-
 module solver.toolbox {
 	"use strict";
 	

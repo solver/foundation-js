@@ -11,8 +11,6 @@
  * specific language governing permissions and limitations under the License.
  */
 
-/// <reference path="../lib.ts" />
-
 module solver.toolbox {
 	"use strict";
 	

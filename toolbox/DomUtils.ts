@@ -1,5 +1,3 @@
-/// <reference path="../lib.ts" />
-
 /**
  * DOM-related utilities.
  */
