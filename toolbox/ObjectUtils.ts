@@ -11,9 +11,9 @@
  * specific language governing permissions and limitations under the License.
  */
 
-"use strict";
-
-module solver.lab {
+module solver.toolbox {
+	"use strict";
+	
 	/**
 	 * Common utilities for operating with primitives and objects.
 	 */
@@ -339,6 +339,79 @@ module solver.lab {
 			}
 	
 			return object;
+		}
+		
+		/**
+		 * Merges a tree of objects/arrays/scalars recursively, properties of the second replacing (or setting)
+		 * properties of the first.
+		 */
+		public merge(mergeTo: Array<any>, mergeFrom: Array<any>) {
+			var merge = function (a, b) {
+				for (var k in b) if (b.hasOwnProperty(k)) {
+					var bv = b[k];
+					if (typeof a.k !== 'undefined') {
+						var av = a[k];
+						if (typeof av === 'object' && typeof bv === 'object') {
+							merge(av, bv);
+						} else {
+							av = bv;
+						}
+					} else {
+						a[k] = bv;
+					}
+				}
+			};
+		
+			merge(mergeTo, mergeFrom);
+		}
+		
+		/**
+		 * Takes input with keys delimited by dots and/or brackets such as:
+		 * 
+		 * {'foo.bar.baz' : 123} -or- {'foo[bar][baz]' : 123}}
+		 *
+		 * and returns an output such as:
+		 *
+		 * {'foo' : {'bar' : {'baz' : 123}}}
+		 *
+		 * IMPORTANT: The current implementation always produces Object instances, even if a set of keys might form a
+		 * valid Array.
+		 */
+		public static splitKeys(object: any): any {
+			var bracketToDot = ObjectUtils.bracketToDot;
+			var output = {};
+		
+			for (key in object) if (object.hasOwnProperty(key)) {
+				var value = object[key];
+				if (key.indexOf('[') > -1) key = bracketToDot(key);
+				var key = key.split('.');
+		
+				var node = output;
+		
+				for (var i = 0, m = key.length; i < m; i++) {
+					if (i < m - 1) {
+						if (typeof node[key[i]] !== 'object') node[key[i]] = {};
+						node = node[key[i]];
+					} else {
+						node[key[i]] = value;
+					}
+				};
+			}
+		
+			return output;
+		}
+		
+		/**
+		 * Takes a bracket delimited path such as:
+		 *
+		 * "foo[bar][baz]"
+		 *
+		 * and returns a dot delimited path such as:
+		 *
+		 * "foo.bar.baz"
+		 */
+		public static bracketToDot(path: string): string {
+			return path.replace(/[\[\]]+/g, '.').replace(/^\.+|\.+$/g, '');
 		}
 	}
 }
