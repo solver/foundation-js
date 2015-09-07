@@ -229,7 +229,7 @@ module solver.toolbox {
 			 * 
 			 * Return false to abort the request before it's sent.
 			 */
-			willSend?: (details?: RequestDetails) => boolean;
+			willSend?: (details?: RequestDetails) => boolean|void;
 		}
 		
 		export interface ResponseHandlers {			
