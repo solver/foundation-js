@@ -10,7 +10,6 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-/// <reference path="../lib.ts" />
 var solver;
 (function (solver) {
     var toolbox;
@@ -60,7 +59,6 @@ var solver;
         toolbox.DataBox = DataBox;
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
-/// <reference path="../lib.ts" />
 /**
  * Utilities for working with date & time data.
  */
@@ -123,7 +121,6 @@ var solver;
         })(DateUtils = toolbox.DateUtils || (toolbox.DateUtils = {}));
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
-/// <reference path="../lib.ts" />
 /**
  * DOM-related utilities.
  */
@@ -139,7 +136,12 @@ var solver;
              */
             function encodeText(str) {
                 // TODO: Optimize.
-                return str.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                return str
+                    .replace(/&/g, '&amp;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/</g, '&lt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
             }
             DomUtils.encodeText = encodeText;
             /**
@@ -176,7 +178,6 @@ var solver;
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-/// <reference path="../lib.ts" />
 var solver;
 (function (solver) {
     var toolbox;
@@ -216,7 +217,6 @@ var solver;
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-/// <reference path="../lib.ts" />
 var solver;
 (function (solver) {
     var toolbox;
@@ -315,7 +315,7 @@ var solver;
                 // inline that in the loop.
                 function cloneRecursive(object, level) {
                     if (level > 16) {
-                        throw new Error('Went deeper than 16 levels. Reference loop?');
+                        throw new Error('Went deeper than 16 levels. Reference loop?'); // TODO: Improve this error message, add maxDepth param.
                     }
                     var type = typeof object;
                     // Scalars & null are returned directly as they're immutable (no need to copy them).
@@ -427,7 +427,7 @@ var solver;
                 // inline that in the loop.
                 function compareRecursive(objectA, objectB, level) {
                     if (level > 16) {
-                        throw new Error('Went deeper than 16 levels. Reference loop?');
+                        throw new Error('Went deeper than 16 levels. Reference loop?'); // TODO: Improve this error message, add maxDepth param.
                     }
                     // If a strict check is true, we know for sure things match up (and we don't have to descend into object
                     // properties for objects as we know it's literally the same object).
@@ -487,6 +487,9 @@ var solver;
                             return false;
                         return true;
                     }
+                    // TODO: A more detailed error report.
+                    // TODO: Can't we support all types? See what types there are, and if there are any gotchas about DOM
+                    // objects and other native C objects exposed to JS.
                     throw new Error('One or both of the compared objects are, or contain properties of an unsupported type.');
                 }
                 return compareRecursive(objectA, objectB, 0);
@@ -596,7 +599,6 @@ var solver;
         toolbox.ObjectUtils = ObjectUtils;
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
-/// <reference path="../lib.ts" />
 var solver;
 (function (solver) {
     var toolbox;
@@ -776,12 +778,12 @@ var solver;
                 var response = this.dataFromXhr(responseType, jqXhr);
                 // If we haven't received a formatted log from the server, we format the response text as one.
                 var log = response instanceof Array ? response : [{
-                    path: null,
-                    type: 'error',
-                    message: response,
-                    code: jqXhr.status,
-                    details: null
-                }];
+                        path: null,
+                        type: 'error',
+                        message: response,
+                        code: jqXhr.status,
+                        details: null
+                    }];
                 return log;
             };
             /**
@@ -869,6 +871,7 @@ var solver;
                 formList.push(form);
             };
             StandardFormHandler.prototype.removeFormIn = function (formList, form) {
+                // TRICKY: It's important to loop in reverse here as we'll be removing elements via splice as we loop.
                 for (var i = formList.length - 1; i >= 0; i--) {
                     if (formList[i] === form) {
                         formList.splice(i, 1);
