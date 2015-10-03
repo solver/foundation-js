@@ -436,3 +436,22 @@ declare module solver.lab {
         protected displayLog(form: HTMLElement, log: Array<any>): void;
     }
 }
+declare module solver.lab {
+    /**
+     * Partial (encoder-only) of PHP's Solver\Lab\FluentUrlCodec. See that class for details on every method.
+     *
+     * IMPORTANT: If you update this code, make sure you also update the PHP version of it!
+     */
+    class FluentUrlCodec {
+        static encode(chain: FluentUrlCodec.FluentChain): string;
+        protected static percentEncode(str: string): string;
+        protected static percentDecode(str: string): string;
+        protected static throwRootMustBeCollection(): void;
+    }
+    module FluentUrlCodec {
+        type FluentChain = Array<string | {
+            name: string;
+            params: any;
+        }>;
+    }
+}

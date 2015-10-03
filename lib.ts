@@ -7,3 +7,4 @@
 /// <reference path="toolbox/Ajax.ts" />
 
 /// <reference path="lab/StandardFormHandler.ts" />
+/// <reference path="lab/FluentUrlCodec.ts" />

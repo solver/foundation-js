@@ -934,12 +934,122 @@ var solver;
         lab.StandardFormHandler = StandardFormHandler;
     })(lab = solver.lab || (solver.lab = {}));
 })(solver || (solver = {}));
+var solver;
+(function (solver) {
+    var lab;
+    (function (lab) {
+        "use strict";
+        /**
+         * Partial (encoder-only) of PHP's Solver\Lab\FluentUrlCodec. See that class for details on every method.
+         *
+         * IMPORTANT: If you update this code, make sure you also update the PHP version of it!
+         */
+        var FluentUrlCodec = (function () {
+            function FluentUrlCodec() {
+            }
+            FluentUrlCodec.encode = function (chain) {
+                function writeValue(input, root) {
+                    if (root === void 0) { root = false; }
+                    if (input == null) {
+                        if (root)
+                            FluentUrlCodec.throwRootMustBeCollection();
+                        return null;
+                    }
+                    else if (typeof input === 'object') {
+                        var literals = [];
+                        for (var i = 0; input.hasOwnProperty(i); i++) {
+                            var valueLiteral = writeValue(input[i]);
+                            if (valueLiteral == null)
+                                break;
+                            literals.push(valueLiteral);
+                        }
+                        // TODO: Faster way?
+                        if (Object.keys(input).length > i) {
+                            for (var key in input)
+                                if (input.hasOwnProperty(key)) {
+                                    var value = input[key];
+                                    // TODO: Faster way to detect int keys?
+                                    if (key.match(/^\d+$/) && key < i)
+                                        continue;
+                                    var keyLiteral = FluentUrlCodec.percentEncode(key);
+                                    var valueLiteral = writeValue(value);
+                                    if (valueLiteral == null)
+                                        continue;
+                                    literals.push(keyLiteral + '=' + valueLiteral);
+                                }
+                        }
+                        if (root) {
+                            return literals.join(';');
+                        }
+                        else {
+                            return literals.length ? '(' + literals.join(';') + ')' : null;
+                        }
+                    }
+                    else if (typeof input === 'number') {
+                        if (root)
+                            FluentUrlCodec.throwRootMustBeCollection();
+                        return (input + '').replace('+', '');
+                    }
+                    else if (typeof input === 'string') {
+                        if (root)
+                            FluentUrlCodec.throwRootMustBeCollection();
+                        return FluentUrlCodec.percentEncode(input);
+                    }
+                    else if (typeof input === 'boolean') {
+                        if (root)
+                            FluentUrlCodec.throwRootMustBeCollection();
+                        return input ? '1' : '0';
+                    }
+                    else {
+                        // TODO: More specific error with path etc.?
+                        throw new Error('Unsupported value type in the input.');
+                    }
+                }
+                var url = '/';
+                var count = chain.length;
+                for (var _i = 0; _i < chain.length; _i++) {
+                    var segment = chain[_i];
+                    if (typeof segment === 'string') {
+                        var name = segment;
+                        var params = null;
+                    }
+                    else {
+                        var name = segment.name;
+                        var params = segment.params;
+                    }
+                    url += FluentUrlCodec.percentEncode(name);
+                    if (params != null) {
+                        var encodedParams = writeValue(params, true);
+                        if (encodedParams != null)
+                            url += ';' + encodedParams;
+                    }
+                    url += '/';
+                }
+                return url;
+            };
+            FluentUrlCodec.percentEncode = function (str) {
+                return encodeURIComponent(str)
+                    .replace(/[!'()*]/g, function (c) { return '%' + c.charCodeAt(0).toString(16); })
+                    .replace('%20', '+');
+            };
+            FluentUrlCodec.percentDecode = function (str) {
+                return decodeURIComponent(str.replace('+', ' '));
+            };
+            FluentUrlCodec.throwRootMustBeCollection = function () {
+                throw new Error('Root value must be a collection.');
+            };
+            return FluentUrlCodec;
+        })();
+        lab.FluentUrlCodec = FluentUrlCodec;
+    })(lab = solver.lab || (solver.lab = {}));
+})(solver || (solver = {}));
 /// <reference path="toolbox/DataBox.ts" />
 /// <reference path="toolbox/DateUtils.ts" />
 /// <reference path="toolbox/DomUtils.ts" />
 /// <reference path="toolbox/FuncUtils.ts" />
 /// <reference path="toolbox/ObjectUtils.ts" />
 /// <reference path="toolbox/Ajax.ts" />
-/// <reference path="lab/StandardFormHandler.ts" /> 
+/// <reference path="lab/StandardFormHandler.ts" />
+/// <reference path="lab/FluentUrlCodec.ts" /> 
 /// <reference path="declarations/jquery.d.ts" />
 /// <reference path="lib.ts" /> 
