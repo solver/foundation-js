@@ -1,0 +1,17 @@
+{
+  "name": "Solver Foundation for JavaScript",
+  "homepage": "https://github.com/solver/foundation-js",
+  "description": "A small collection of shared JavaScript components for use in Node.JS and web projects.",
+  "main": "solver-foundation.js",
+  "moduleType": [],
+  "authors": [
+    "Stan Vass"
+  ],
+  "license": "Apache License, Version 2.0",
+  "ignore": [
+    "**/.*",
+    "declarations",
+    "build.ts",
+    "watch.bat",
+  ]
+}
