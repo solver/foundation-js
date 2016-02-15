@@ -11,6 +11,7 @@
   "ignore": [
     "**/.*",
     "declarations",
+    "solver-foundation.d.ts",
     "build.ts",
     "watch.bat"
   ]
