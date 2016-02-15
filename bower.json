@@ -12,6 +12,6 @@
     "**/.*",
     "declarations",
     "build.ts",
-    "watch.bat",
+    "watch.bat"
   ]
 }
