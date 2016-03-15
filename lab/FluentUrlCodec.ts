@@ -29,7 +29,7 @@ module solver.lab {
 						for (var key in input) if (input.hasOwnProperty(key)) {
 							var value = input[key];
 							// TODO: Faster way to detect int keys?
-							if (key.match(/^\d+$/) && key < i) continue;
+							if (key.match(/^\d+$/) && <number><any>key < i) continue;
 							var keyLiteral = FluentUrlCodec.percentEncode(key);
 							var valueLiteral = writeValue(value);
 							if (valueLiteral == null) continue;
