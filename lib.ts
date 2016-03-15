@@ -3,6 +3,7 @@
 /// <reference path="toolbox/DomUtils.ts" />
 /// <reference path="toolbox/FuncUtils.ts" />
 /// <reference path="toolbox/ObjectUtils.ts" />
+/// <reference path="toolbox/FormUtils.ts" />
 
 /// <reference path="toolbox/Ajax.ts" />
 

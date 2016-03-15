@@ -48,9 +48,34 @@ module solver.toolbox {
 				if (ctx.willSend(details) === false) return;
 			}
 			
+			var data: any;
+			var processData: boolean;
+			var contentType: string|boolean;
+			var mimeType: string;
+			
+			if (request.method === 'GET' || !this.hasFiles(request.input)) {
+				// TODO: We should select this branch also for any method, if we have no File instances in the input.
+				data = request.input;	
+				processData = true;
+				contentType = 'application/x-www-form-urlencoded';
+				mimeType = 'application/x-www-form-urlencoded';
+			} else {
+				data = FormUtils.serializeObject(request.input);
+				processData = false;
+				contentType = false;
+				mimeType = 'multipart/form-data';
+			}
+			
+			debugger
+			
 			$.ajax(request.url, {
-				method: request.method,				
-				data: request.input,				
+				data,
+				processData,
+				mimeType,
+				contentType,
+				
+				method: request.method,
+					
 				dataType: request.responseType != null ? request.responseType : null,				
 				success: response => {
 					// FIXME: Is the status code here always 200, really?
@@ -150,6 +175,31 @@ module solver.toolbox {
 					if (setup.didFail) setup.didFail(response, jqXhr.status, details);
 				}
 			});
+		}
+		
+		private hasFiles(obj: any) {
+			var hasFiles = false;
+			
+			var scan = obj => {
+				if (obj == null) return;
+				
+				if (obj instanceof File) {
+					hasFiles = true;
+					return;
+				}
+				
+				if (obj instanceof Object) {
+					for (var i in obj) if (obj.hasOwnProperty(i)) {
+						scan(obj[i]);
+						// Short-circuit search.
+						if (hasFiles) return;
+					}
+				}
+			};
+			
+			scan(obj);
+			
+			return hasFiles;
 		}
 		
 		private addFieldsToForm(form, serial, fields): void {
