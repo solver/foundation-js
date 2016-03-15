@@ -61,35 +61,36 @@ module solver.toolbox {
 				data = request.input;	
 				processData = true;
 				contentType = 'application/x-www-form-urlencoded';
-				mimeType = 'application/x-www-form-urlencoded';
 			} else {
 				data = FormUtils.serializeObject(request.input);
 				processData = false;
-				contentType = false;
-				mimeType = 'multipart/form-data';
+				contentType = false; // Automatically set by the browser XHR to "multipart/form-data".
 			}
 			
-			$.ajax(request.url, {
+			var options: any = {
 				data,
 				processData,
-				mimeType,
 				contentType,
-				
 				method: request.method,
+						
+				success: (data, textStatus, jqXhr) => {
+					var response = this.decodeResponse(jqXhr);
 					
-				dataType: request.responseType != null ? request.responseType : null,				
-				success: response => {
 					// FIXME: Is the status code here always 200, really?
 					if (ctx.didSucceed) ctx.didSucceed(response, 200, details);
 					if (request.didSucceed) request.didSucceed(response, 200, details);
 				},				
-				error: (jqXhr) => {					
-					var response = this.logFromXhr(null, jqXhr);
+				error: (jqXhr, textStatus, errorThrown) => {					
+					var response = this.decodeResponse(jqXhr);
 					
 					if (ctx.didFail) ctx.didFail(response, jqXhr.status, details);
 					if (request.didFail) request.didFail(response, jqXhr.status, details);
 				}
-			});
+			};
+			
+			if (request.responseType != null) options.dataType = request.responseType;
+					
+			$.ajax(request.url, options);
 		}
 		
 		/**
@@ -161,21 +162,30 @@ module solver.toolbox {
 						}
 					}
 				},
-				success: response => {
+				success: (data, textStatus, jqXhr) => {
+					var response = this.decodeResponse(jqXhr);
+					
 					this.removeFieldsFromForm(setup.form, serial);
 					
 					// FIXME: Is the status code here always 200, really?
 					if (ctx.didSucceed) ctx.didSucceed(response, 200, details);
 					if (setup.didSucceed) setup.didSucceed(response, 200, details);
 				},				
-				error: (jqXhr) => {
-					this.removeFieldsFromForm(setup.form, serial);					
-					var response = this.logFromXhr(null, jqXhr);
+				error: (jqXhr, textStatus, errorThrown) => {	
+					var response = this.decodeResponse(jqXhr);
+				
+					this.removeFieldsFromForm(setup.form, serial);	
 					
 					if (ctx.didFail) ctx.didFail(response, jqXhr.status, details);
 					if (setup.didFail) setup.didFail(response, jqXhr.status, details);
 				}
 			});
+		}
+		
+		private decodeResponse(jqXhr: JQueryXHR) { 
+			if (jqXhr.responseXML != null) return jqXhr.responseXML;
+			if (jqXhr.responseJSON != null) return jqXhr.responseJSON;
+			return jqXhr.responseText;
 		}
 		
 		private hasBlobs(obj: any) {
@@ -226,45 +236,6 @@ module solver.toolbox {
 			if (responseType === 'text') return;
 			
 			throw new Error('Invalid responseType "' + responseType + '".');
-		}
-		
-		/**
-		 * Same as dataFromXhr() but formats the response as a log error, if not already formatted as a log.
-		 */
-		private logFromXhr(responseType, jqXhr): Array<any> {
-			var response = this.dataFromXhr(responseType, jqXhr);
-			
-			// If we haven't received a formatted log from the server, we format the response text as one.
-			var log = response instanceof Array ? response : [{
-				path: null,
-				type: 'error',
-				message: response,
-				code: jqXhr.status,
-				details: null
-			}];
-			
-			return log;
-		}
-		
-		/**
-		 * jQuery doesn't return parsed content on error responses, so we need to fish it out of the object.
-		 * 
-		 * This is why responseType in requests is limited to xml, json, text, as we only have logic for those three
-		 * types.
-		 */
-		private dataFromXhr(responseType, jqXhr): any {
-			if (typeof responseType === 'string') {
-				if (responseType === 'xml' && jqXhr.responseXML) return jqXhr.responseXML;
-				if (responseType === 'json' && jqXhr.responseJSON) return jqXhr.responseJSON;
-				if (responseType === 'text' && jqXhr.responseText) return jqXhr.responseText;
-			}
-	
-			// If no (matching) preference, return whatever is there, preferring structured types over plain text.
-			if (jqXhr.responseXML) return jqXhr.responseXML;
-			if (jqXhr.responseJSON) return jqXhr.responseJSON;
-			if (jqXhr.responseText) return jqXhr.responseText;
-	
-			return null;
 		}
 	}
 		
