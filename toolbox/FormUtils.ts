@@ -56,7 +56,7 @@ namespace solver.toolbox.FormUtils {
 				return;
 			}
 			
-			if (value instanceof Object && !(value instanceof File)) {
+			if (value instanceof Object && !(value instanceof Blob)) {
 				for (var k in value) if (value.hasOwnProperty(k)) {
 					scan(value[k], [].concat(path, [k]));
 				}
@@ -115,8 +115,8 @@ namespace solver.toolbox.FormUtils {
 	 * TODO: Use "new FormData(form)" to produce this array when there's wider support in browsers, and use current code
 	 * as a fallback only.
 	 */
-	function getFormData(form: HTMLFormElement): Array<[string, string|File]> {
-		var data: Array<[string, string|File]> = [];
+	function getFormData(form: HTMLFormElement): Array<[string, string|Blob]> {
+		var data: Array<[string, string|Blob]> = [];
 		
 		for (var el of $('input, select, textarea', form).toArray()) {
 			if (el.disabled) continue;

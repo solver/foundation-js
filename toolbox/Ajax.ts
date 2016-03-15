@@ -5,6 +5,8 @@ module solver.toolbox {
 		
 	/**
 	 * A convenience tool for AJAX calls that captures common features and conventions used in projects.
+	 *
+	 * NOTE: Unlike jQuery, this tool supports Blob/File instances in input (you can upload files with an Ajax call).
 	 * 
 	 * Depends on jQuery 1.9+.
 	 * Depends on the jQuery Form plugin: http://malsup.com/jquery/form/ 
@@ -65,8 +67,6 @@ module solver.toolbox {
 				contentType = false;
 				mimeType = 'multipart/form-data';
 			}
-			
-			debugger
 			
 			$.ajax(request.url, {
 				data,
@@ -177,13 +177,13 @@ module solver.toolbox {
 			});
 		}
 		
-		private hasFiles(obj: any) {
-			var hasFiles = false;
+		private hasBlobs(obj: any) {
+			var hasBlobs = false;
 			
 			var scan = obj => {
 				if (obj == null) return;
 				
-				if (obj instanceof File) {
+				if (obj instanceof Blob) {
 					hasFiles = true;
 					return;
 				}
@@ -192,14 +192,14 @@ module solver.toolbox {
 					for (var i in obj) if (obj.hasOwnProperty(i)) {
 						scan(obj[i]);
 						// Short-circuit search.
-						if (hasFiles) return;
+						if (hasBlobs) return;
 					}
 				}
 			};
 			
 			scan(obj);
 			
-			return hasFiles;
+			return hasBlobs;
 		}
 		
 		private addFieldsToForm(form, serial, fields): void {
