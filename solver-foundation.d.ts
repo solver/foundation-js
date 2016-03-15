@@ -273,9 +273,42 @@ declare module solver.toolbox {
         static bracketToDot(path: string): string;
     }
 }
+/**
+ * Form-related utilities.
+ */
+declare namespace solver.toolbox.FormUtils {
+    /**
+     * - Serialize form with dots or brackets to object tree.
+     * - Take object tree, unroll to brackets, make FormData.
+     * - Submit XHR with the FormData, decode response (text, JSON, XML).
+     *
+     * Maybe we don't need jQuery.
+     */
+    /**
+     * Converts form data to an object, using PHP brackets and dots as a convention for marking up keys deeper into
+     * the object i.e. name your field "foo[bar][baz]" or "foo.bar.baz" to create a deep key in the object (at
+     * foo.bar.baz), and use "foo[]" or "foo.*" to push a new value to an array at the given key.
+     */
+    function formToObject(form: HTMLFormElement): any;
+    /**
+     * Converts a form to FormData representing that data structure.
+     *
+     * PHP bracket conventions are used to describe deep keys and arrays (i.e. foo.bar.baz becomes "foo[bar][baz]").
+     */
+    function serializeForm(form: HTMLFormElement): FormData;
+    /**
+     * Converts a tree of objects/arrays/scalars into a FormData representing that data structure.
+     *
+     * PHP bracket conventions are used to describe deep keys and arrays (i.e. foo.bar.baz becomes "foo[bar][baz]").
+     */
+    function serializeObject(object: any): FormData;
+}
 declare module solver.toolbox {
     /**
      * A convenience tool for AJAX calls that captures common features and conventions used in projects.
+     *
+     * NOTE: Unlike jQuery, this tool supports Blob/File instances in input (you can upload files with an Ajax call).
+     * File uploads work on all browsers, except IE9 and earlier.
      *
      * Depends on jQuery 1.9+.
      * Depends on the jQuery Form plugin: http://malsup.com/jquery/form/
@@ -311,6 +344,7 @@ declare module solver.toolbox {
          * Sets up a form to be sent over XHR, with JS callbacks for success and failure.
          */
         convertForm(setup: Ajax.FormConfig): void;
+        private hasBlobs(obj);
         private addFieldsToForm(form, serial, fields);
         private removeFieldsFromForm(form, serial);
         private validateResponseType(responseType);

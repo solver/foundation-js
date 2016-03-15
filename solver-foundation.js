@@ -55,7 +55,7 @@ var solver;
                 return this.value;
             };
             return DataBox;
-        })();
+        }());
         toolbox.DataBox = DataBox;
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
@@ -201,7 +201,7 @@ var solver;
                 };
             };
             return FuncUtils;
-        })();
+        }());
         toolbox.FuncUtils = FuncUtils;
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
@@ -595,8 +595,167 @@ var solver;
                 return path.replace(/[\[\]]+/g, '.').replace(/^\.+|\.+$/g, '');
             };
             return ObjectUtils;
-        })();
+        }());
         toolbox.ObjectUtils = ObjectUtils;
+    })(toolbox = solver.toolbox || (solver.toolbox = {}));
+})(solver || (solver = {}));
+/**
+ * Form-related utilities.
+ */
+var solver;
+(function (solver) {
+    var toolbox;
+    (function (toolbox) {
+        var FormUtils;
+        (function (FormUtils) {
+            "use strict";
+            /**
+             * - Serialize form with dots or brackets to object tree.
+             * - Take object tree, unroll to brackets, make FormData.
+             * - Submit XHR with the FormData, decode response (text, JSON, XML).
+             *
+             * Maybe we don't need jQuery.
+             */
+            /**
+             * Converts form data to an object, using PHP brackets and dots as a convention for marking up keys deeper into
+             * the object i.e. name your field "foo[bar][baz]" or "foo.bar.baz" to create a deep key in the object (at
+             * foo.bar.baz), and use "foo[]" or "foo.*" to push a new value to an array at the given key.
+             */
+            function formToObject(form) {
+                var data = getFormData(form);
+                var obj = {};
+                for (var _i = 0, data_1 = data; _i < data_1.length; _i++) {
+                    var keyVal = data_1[_i];
+                    var key = keyVal[0], val = keyVal[1];
+                    embed(key, val, obj);
+                }
+                return obj;
+            }
+            FormUtils.formToObject = formToObject;
+            /**
+             * Converts a form to FormData representing that data structure.
+             *
+             * PHP bracket conventions are used to describe deep keys and arrays (i.e. foo.bar.baz becomes "foo[bar][baz]").
+             */
+            function serializeForm(form) {
+                return serializeObject(formToObject(form));
+            }
+            FormUtils.serializeForm = serializeForm;
+            /**
+             * Converts a tree of objects/arrays/scalars into a FormData representing that data structure.
+             *
+             * PHP bracket conventions are used to describe deep keys and arrays (i.e. foo.bar.baz becomes "foo[bar][baz]").
+             */
+            function serializeObject(object) {
+                var data = new FormData();
+                var scan = function (value, path) {
+                    if (value == null)
+                        return;
+                    if (value instanceof Array) {
+                        for (var i = 0, m = value.length; i < m; i++) {
+                            scan(value[i], [].concat(path, [i]));
+                        }
+                        return;
+                    }
+                    if (value instanceof Object && !(value instanceof Blob)) {
+                        for (var k in value)
+                            if (value.hasOwnProperty(k)) {
+                                scan(value[k], [].concat(path, [k]));
+                            }
+                        return;
+                    }
+                    // TODO: This converts correctly, but it's a bit messy. Clean it up.
+                    var name = (path.join('][') + ']').replace(']', '');
+                    data.append(name, value);
+                };
+                scan(object, []);
+                return data;
+            }
+            FormUtils.serializeObject = serializeObject;
+            function bracketToDot(name) {
+                // TODO: This is quite sloppy, we need to refine. But it works. Covnerts PHP field notation like:
+                // "foo[bar][baz][123][]" to dot notation like "foo.bar.baz.123.*".
+                return name.replace(/\[\]/g, '.*').replace(/[\[\]]+/g, '.').replace(/\.{2,}/g, '.').replace(/^\.|\.$/g, '');
+            }
+            function embed(path, value, target) {
+                var keys = bracketToDot(path).split('.');
+                var lastKey = keys[0];
+                if (lastKey == '*') {
+                    throw new Error('You cannot push to the root.');
+                }
+                for (var i = 1, m = keys.length; i < m; i++) {
+                    var key = keys[i];
+                    // Special key, means "push to array"
+                    if (key === '*') {
+                        if (!(target[lastKey] instanceof Array))
+                            target[lastKey] = [];
+                        key = target[lastKey].length;
+                    }
+                    else {
+                        if (target[lastKey] == null)
+                            target[lastKey] = {};
+                    }
+                    target = target[lastKey];
+                    lastKey = key;
+                }
+                target[lastKey] = value;
+            }
+            /**
+             * Reads all form data to a list of [key, value] tuples.
+             *
+             * This is similar to what "new FormData(form)" does, but since the read methods of FormData are currently only
+             * supported on Gecko, we need to emulate it and write to an array, so we can read from it afterwards...
+             *
+             * TODO: Use "new FormData(form)" to produce this array when there's wider support in browsers, and use current code
+             * as a fallback only.
+             */
+            function getFormData(form) {
+                var data = [];
+                for (var _i = 0, _a = $('input, select, textarea', form).toArray(); _i < _a.length; _i++) {
+                    var el = _a[_i];
+                    if (el.disabled)
+                        continue;
+                    switch (el.tagName.toLowerCase()) {
+                        case 'input':
+                            if (el.type === 'file') {
+                                for (var _b = 0, _c = el.files; _b < _c.length; _b++) {
+                                    var file = _c[_b];
+                                    data.push([el.name, file]);
+                                }
+                            }
+                            else if (el.type === 'checkbox' || el.type === 'radio') {
+                                if (el.checked)
+                                    data.push([el.name, el.value]);
+                            }
+                            else {
+                                data.push([el.name, el.value]);
+                            }
+                            break;
+                        case 'textarea':
+                            data.push([el.name, el.value]);
+                            break;
+                        case 'select':
+                            if (el.multiple) {
+                                for (var _d = 0, _e = el.options; _d < _e.length; _d++) {
+                                    var option = _e[_d];
+                                    if (!option.disabled && option.selected) {
+                                        data.push([el.name, option.value]);
+                                    }
+                                }
+                            }
+                            else {
+                                var index = el.selectedIndex;
+                                if (index > -1)
+                                    data.push([el.name, el.options[el.selectedIndex].value]);
+                            }
+                            break;
+                        default:
+                            throw new Error('Unexpected field tag name "' + el.tagName + '".');
+                    }
+                }
+                return data;
+            }
+        })(FormUtils = toolbox.FormUtils || (toolbox.FormUtils = {}));
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
 var solver;
@@ -607,6 +766,9 @@ var solver;
         var encodeText = solver.toolbox.DomUtils.encodeText;
         /**
          * A convenience tool for AJAX calls that captures common features and conventions used in projects.
+         *
+         * NOTE: Unlike jQuery, this tool supports Blob/File instances in input (you can upload files with an Ajax call).
+         * File uploads work on all browsers, except IE9 and earlier.
          *
          * Depends on jQuery 1.9+.
          * Depends on the jQuery Form plugin: http://malsup.com/jquery/form/
@@ -646,9 +808,29 @@ var solver;
                     if (ctx.willSend(details) === false)
                         return;
                 }
+                var data;
+                var processData;
+                var contentType;
+                var mimeType;
+                if (request.method === 'GET' || !this.hasBlobs(request.input)) {
+                    // TODO: We should select this branch also for any method, if we have no Blob/File instances in input.
+                    data = request.input;
+                    processData = true;
+                    contentType = 'application/x-www-form-urlencoded';
+                    mimeType = 'application/x-www-form-urlencoded';
+                }
+                else {
+                    data = toolbox.FormUtils.serializeObject(request.input);
+                    processData = false;
+                    contentType = false;
+                    mimeType = 'multipart/form-data';
+                }
                 $.ajax(request.url, {
+                    data: data,
+                    processData: processData,
+                    mimeType: mimeType,
+                    contentType: contentType,
                     method: request.method,
-                    data: request.input,
                     dataType: request.responseType != null ? request.responseType : null,
                     success: function (response) {
                         // FIXME: Is the status code here always 200, really?
@@ -746,6 +928,28 @@ var solver;
                     }
                 });
             };
+            Ajax.prototype.hasBlobs = function (obj) {
+                var hasBlobs = false;
+                var scan = function (obj) {
+                    if (obj == null)
+                        return;
+                    if (obj instanceof Blob) {
+                        hasBlobs = true;
+                        return;
+                    }
+                    if (obj instanceof Object) {
+                        for (var i in obj)
+                            if (obj.hasOwnProperty(i)) {
+                                scan(obj[i]);
+                                // Short-circuit search.
+                                if (hasBlobs)
+                                    return;
+                            }
+                    }
+                };
+                scan(obj);
+                return hasBlobs;
+            };
             Ajax.prototype.addFieldsToForm = function (form, serial, fields) {
                 if (fields == null)
                     return;
@@ -815,7 +1019,7 @@ var solver;
              */
             Ajax.serial = 0;
             return Ajax;
-        })();
+        }());
         toolbox.Ajax = Ajax;
     })(toolbox = solver.toolbox || (solver.toolbox = {}));
 })(solver || (solver = {}));
@@ -930,7 +1134,7 @@ var solver;
                 }
             };
             return StandardFormHandler;
-        })();
+        }());
         lab.StandardFormHandler = StandardFormHandler;
     })(lab = solver.lab || (solver.lab = {}));
 })(solver || (solver = {}));
@@ -1007,8 +1211,8 @@ var solver;
                 }
                 var url = '/';
                 var count = chain.length;
-                for (var _i = 0; _i < chain.length; _i++) {
-                    var segment = chain[_i];
+                for (var _i = 0, chain_1 = chain; _i < chain_1.length; _i++) {
+                    var segment = chain_1[_i];
                     if (typeof segment === 'string') {
                         var name = segment;
                         var params = null;
@@ -1039,7 +1243,7 @@ var solver;
                 throw new Error('Root value must be a collection.');
             };
             return FluentUrlCodec;
-        })();
+        }());
         lab.FluentUrlCodec = FluentUrlCodec;
     })(lab = solver.lab || (solver.lab = {}));
 })(solver || (solver = {}));
@@ -1048,6 +1252,7 @@ var solver;
 /// <reference path="toolbox/DomUtils.ts" />
 /// <reference path="toolbox/FuncUtils.ts" />
 /// <reference path="toolbox/ObjectUtils.ts" />
+/// <reference path="toolbox/FormUtils.ts" />
 /// <reference path="toolbox/Ajax.ts" />
 /// <reference path="lab/StandardFormHandler.ts" />
 /// <reference path="lab/FluentUrlCodec.ts" /> 

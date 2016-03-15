@@ -7,6 +7,7 @@ module solver.toolbox {
 	 * A convenience tool for AJAX calls that captures common features and conventions used in projects.
 	 *
 	 * NOTE: Unlike jQuery, this tool supports Blob/File instances in input (you can upload files with an Ajax call).
+	 * File uploads work on all browsers, except IE9 and earlier.
 	 * 
 	 * Depends on jQuery 1.9+.
 	 * Depends on the jQuery Form plugin: http://malsup.com/jquery/form/ 
@@ -55,8 +56,8 @@ module solver.toolbox {
 			var contentType: string|boolean;
 			var mimeType: string;
 			
-			if (request.method === 'GET' || !this.hasFiles(request.input)) {
-				// TODO: We should select this branch also for any method, if we have no File instances in the input.
+			if (request.method === 'GET' || !this.hasBlobs(request.input)) {
+				// TODO: We should select this branch also for any method, if we have no Blob/File instances in input.
 				data = request.input;	
 				processData = true;
 				contentType = 'application/x-www-form-urlencoded';
@@ -184,7 +185,7 @@ module solver.toolbox {
 				if (obj == null) return;
 				
 				if (obj instanceof Blob) {
-					hasFiles = true;
+					hasBlobs = true;
 					return;
 				}
 				
